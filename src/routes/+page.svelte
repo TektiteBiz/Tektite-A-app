@@ -4,6 +4,7 @@
         createDir,
         readDir,
         removeDir,
+        writeFile,
         type FileEntry,
     } from "@tauri-apps/api/fs";
     import { confirm } from "@tauri-apps/api/dialog";
@@ -31,6 +32,17 @@
         }
         const dataDir = await appDataDir();
         await createDir(await join(dataDir, name), { recursive: true });
+        let conf: Config = {
+            rho: 1.229,
+            A: 0.003425,
+            mass: 0.5,
+            baseCd: 0.5,
+            finCd: 0.5,
+            thrustCurveTime: [0, 0.1, 0.9, 0],
+            thrustCurveForce: [0, 100, 100, 0],
+            thrustCurveName: "TEKTITE γ-100",
+        };
+        await writeFile(await join(dataDir, name, "conf.json"), JSON.stringify(conf));
         await refreshRockets();
         name = "";
     }
