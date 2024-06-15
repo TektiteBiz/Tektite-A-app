@@ -1,9 +1,14 @@
 <script lang="ts">
     import { page } from "$app/stores";
-    import { readTextFile, writeTextFile } from "@tauri-apps/api/fs";
+    import {
+        readDir,
+        readTextFile,
+        writeTextFile,
+        removeFile,
+    } from "@tauri-apps/api/fs";
     import { appDataDir, join } from "@tauri-apps/api/path";
     import { invoke } from "@tauri-apps/api/tauri";
-    import { open, message } from "@tauri-apps/api/dialog";
+    import { open, message, confirm } from "@tauri-apps/api/dialog";
     import { onMount } from "svelte";
     import { invalidUrl, object_equals, type Config, type Status } from "$lib";
     import { listen } from "@tauri-apps/api/event";
@@ -11,6 +16,7 @@
     let connected = false;
 
     let config: Config;
+    let flightDataList: string[] = [];
     let savedStatus: Status;
     let status: Status;
 
@@ -38,10 +44,16 @@
     }
 
     async function loadConfig() {
+        const dataDir = await appDataDir();
         let val = await readTextFile(
-            await join(await appDataDir(), $page.params.name, "conf.json"),
+            await join(dataDir, $page.params.name, "conf.json"),
         );
         config = JSON.parse(val);
+
+        let res = await readDir(await join(dataDir, $page.params.name));
+        flightDataList = res
+            .filter((x) => x.name?.endsWith(".csv"))
+            .map((x) => x.name!.slice(0, -4));
     }
 
     async function saveConfig() {
@@ -133,6 +145,29 @@
             dataProgress = e.payload as number;
         });
     });
+
+    async function deleteFlightData(name: string) {
+        if (
+            !(await confirm(`Delete flight data ${name}?`, { type: "warning" }))
+        ) {
+            return;
+        }
+        await removeFile(
+            await join(await appDataDir(), $page.params.name, name + ".csv"),
+        );
+        await loadConfig();
+    }
+
+    async function openFlightData(name: string) {
+        let path = await join(
+            await appDataDir(),
+            $page.params.name,
+            name + ".csv",
+        );
+        let val = await readTextFile(path);
+        let res = Papa.parse(val, { header: true }).data as string[][];
+        console.log(res);
+    }
 </script>
 
 <a href="/" class="text-decoration-none"
@@ -353,22 +388,6 @@
                             on:click={calculate}>Calculate</button
                         >
                     </div>
-                </div>
-            </div>
-        </div>
-        <div class="accordion-item">
-            <h2 class="accordion-header">
-                <button
-                    class="accordion-button collapsed"
-                    type="button"
-                    data-bs-toggle="collapse"
-                    data-bs-target="#flightData"
-                >
-                    Flight Data
-                </button>
-            </h2>
-            <div id="flightData" class="accordion-collapse collapse">
-                <div class="accordion-body">
                     <div class="input-group">
                         <input
                             type="text"
@@ -388,6 +407,53 @@
                                 Download Flight Data
                             {/if}
                         </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {/if}
+    {#if flightDataList.length > 0}
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button
+                    class="accordion-button collapsed"
+                    type="button"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#flightData"
+                >
+                    Flight Data
+                </button>
+            </h2>
+            <div id="flightData" class="accordion-collapse collapse">
+                <div class="accordion-body">
+                    <div class="list-group">
+                        {#each flightDataList as f}
+                            <li
+                                class="list-group-item list-group-item-action fs-5"
+                            >
+                                {f}
+                                <div class="btn-group float-end">
+                                    <button
+                                        class="btn btn-primary btn-sm"
+                                        on:click={() => {
+                                            openFlightData(f);
+                                        }}
+                                        type="button"
+                                        ><i
+                                            class="bi bi-file-earmark-arrow-up-fill"
+                                        ></i></button
+                                    >
+                                    <button
+                                        class="btn btn-danger btn-sm"
+                                        on:click={() => {
+                                            deleteFlightData(f);
+                                        }}
+                                        type="button"
+                                        ><i class="bi bi-trash"></i></button
+                                    >
+                                </div>
+                            </li>
+                        {/each}
                     </div>
                 </div>
             </div>

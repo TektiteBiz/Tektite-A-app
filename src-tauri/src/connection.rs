@@ -143,7 +143,16 @@ fn send_command(port: &mut Box<dyn serialport::SerialPort>, command: Command) {
 #[derive(Serialize, Clone, Copy)]
 pub struct Frame {
     time: u32,
-    state: u8,
+    alt: f32,
+    vz: f32,
+    vx: f32,
+    vy: f32,
+    az: f32,
+    pre: f32,
+    s1: f32,
+
+    ax: f32,
+    ay: f32,
 
     axr: f32,
     ayr: f32,
@@ -156,19 +165,10 @@ pub struct Frame {
     baro: f32,
     temp: f32,
 
-    ax: f32,
-    ay: f32,
-    az: f32,
-    vx: f32,
-    vy: f32,
-    vz: f32,
-
-    alt: f32,
-
-    pre: f32,
-    s1: f32,
     s2: f32,
     s3: f32,
+
+    state: u8,
 }
 
 #[repr(C, packed)]
@@ -202,7 +202,6 @@ pub fn read_data(port: tauri::State<SerialPortState>, app_handle: tauri::AppHand
         let mut buff: [u8; mem::size_of::<SensorBuf>()] = [0; mem::size_of::<SensorBuf>()];
         val.read_exact(&mut buff)
             .expect("Failed to read from Serial port");
-        println!("{:?}", buff);
 
         unsafe {
             let config_slice = slice::from_raw_parts_mut(
@@ -213,12 +212,9 @@ pub fn read_data(port: tauri::State<SerialPortState>, app_handle: tauri::AppHand
             (&buff[0..buff.len()]).read_exact(config_slice).unwrap();
         }
         zero = buf.zero;
-        println!("Zero: {}", zero);
         if zero != 0 {
             break;
         }
-
-        println!("Sample count: {}", buf.sample_count);
 
         let mut t = 0;
         for i in 0..(buf.sample_count as usize) {
