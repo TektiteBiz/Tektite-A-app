@@ -2,7 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod connection;
-use connection::{config_write, connect, disconnect, get_status, is_connected};
+use connection::{config_write, connect, disconnect, get_status, is_connected, read_data};
 
 fn main() {
     tauri::Builder::default()
@@ -12,7 +12,8 @@ fn main() {
             disconnect,
             is_connected,
             get_status,
-            config_write
+            config_write,
+            read_data
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

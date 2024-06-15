@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serialport::{available_ports, SerialPort, SerialPortType};
 use std::{io::Read, mem, slice, sync::Mutex, thread::sleep, time::Duration};
+use tauri::Manager;
 
 pub struct SerialPortState(pub Mutex<Option<Box<dyn SerialPort>>>);
 
@@ -115,14 +116,8 @@ pub fn get_status(port: tauri::State<SerialPortState>) -> StatusData {
 
 #[tauri::command]
 pub fn config_write(port: tauri::State<SerialPortState>, config: Config) {
-    println!("{:#?}", config);
     let mut binding = port.0.lock().unwrap();
     let mut val = binding.as_mut().unwrap();
-    println!(
-        "{} {}",
-        std::mem::size_of::<Command>(),
-        std::mem::size_of::<Config>()
-    );
     send_command(
         &mut val,
         Command {
@@ -142,4 +137,104 @@ fn send_command(port: &mut Box<dyn serialport::SerialPort>, command: Command) {
     port.write_all(data)
         .expect("Failed to write to Serial port");
     port.flush().expect("Failed to flush Serial port");
+}
+
+#[repr(C, packed)]
+#[derive(Serialize, Clone, Copy)]
+pub struct Frame {
+    time: u32,
+    state: u8,
+
+    axr: f32,
+    ayr: f32,
+    azr: f32,
+    gxr: f32,
+    gyr: f32,
+    gzr: f32,
+
+    altr: f32,
+    baro: f32,
+    temp: f32,
+
+    ax: f32,
+    ay: f32,
+    az: f32,
+    vx: f32,
+    vy: f32,
+    vz: f32,
+
+    alt: f32,
+
+    pre: f32,
+    s1: f32,
+    s2: f32,
+    s3: f32,
+}
+
+#[repr(C, packed)]
+pub struct SensorBuf {
+    zero: u32,
+    sample_count: u8,
+    buf: [Frame; 42],
+}
+
+#[tauri::command(async)]
+pub fn read_data(port: tauri::State<SerialPortState>, app_handle: tauri::AppHandle, path: String) {
+    let mut binding = port.0.lock().unwrap();
+    let mut val = binding.as_mut().unwrap();
+
+    // Prepare writer
+    let mut writer = csv::Writer::from_path(path).expect("Failed to open CSV");
+    val.clear(serialport::ClearBuffer::Input)
+        .expect("Failed to clear Serial port");
+    send_command(
+        &mut val,
+        Command {
+            command_type: CommandType::DataRead as u8,
+            config: Config::default(),
+        },
+    );
+
+    // Read
+    let mut zero = 0;
+    while zero == 0 {
+        let mut buf: SensorBuf = unsafe { mem::zeroed() };
+        let mut buff: [u8; mem::size_of::<SensorBuf>()] = [0; mem::size_of::<SensorBuf>()];
+        val.read_exact(&mut buff)
+            .expect("Failed to read from Serial port");
+        println!("{:?}", buff);
+
+        unsafe {
+            let config_slice = slice::from_raw_parts_mut(
+                &mut buf as *mut _ as *mut u8,
+                mem::size_of::<SensorBuf>(),
+            );
+            // `read_exact()` comes from `Read` impl for `&[u8]`
+            (&buff[0..buff.len()]).read_exact(config_slice).unwrap();
+        }
+        zero = buf.zero;
+        println!("Zero: {}", zero);
+        if zero != 0 {
+            break;
+        }
+
+        println!("Sample count: {}", buf.sample_count);
+
+        let mut t = 0;
+        for i in 0..(buf.sample_count as usize) {
+            writer
+                .serialize(buf.buf[i])
+                .expect("Failed to write to CSV");
+            if buf.buf[i].time > t {
+                t = buf.buf[i].time;
+            }
+        }
+        app_handle
+            .emit_all("recvdata", t)
+            .expect("Failed to communicate with frontend");
+
+        val.clear(serialport::ClearBuffer::Input)
+            .expect("Failed to clear Serial port");
+        val.write_all(&[1]).expect("Failed to write to Serial port");
+    }
 }

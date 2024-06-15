@@ -5,7 +5,8 @@
     import { invoke } from "@tauri-apps/api/tauri";
     import { open, message } from "@tauri-apps/api/dialog";
     import { onMount } from "svelte";
-    import { object_equals, type Config, type Status } from "$lib";
+    import { invalidUrl, object_equals, type Config, type Status } from "$lib";
+    import { listen } from "@tauri-apps/api/event";
     import Papa from "papaparse";
     let connected = false;
 
@@ -103,6 +104,35 @@
         }
         await saveConfig();
     }
+
+    let flightDataName = "";
+    let loadingData = false;
+    let dataProgress = 0;
+    async function readFlightData() {
+        if (invalidUrl(flightDataName)) {
+            message("Invalid flight data name", { type: "warning" });
+            return;
+        }
+        let path = await join(
+            await appDataDir(),
+            $page.params.name,
+            flightDataName + ".csv",
+        );
+        flightDataName = "";
+        dataProgress = 0;
+        loadingData = true;
+
+        await invoke("read_data", { path });
+
+        loadingData = false;
+    }
+
+    onMount(() => {
+        listen("recvdata", (e) => {
+            console.log(e.payload);
+            dataProgress = e.payload as number;
+        });
+    });
 </script>
 
 <a href="/" class="text-decoration-none"
@@ -308,22 +338,56 @@
                         </div>
                     </div>
                     <div class="row">
-                        <div class="btn-group">
-                            <button
-                                class="btn btn-success"
-                                disabled={object_equals(
-                                    status.config,
-                                    savedStatus.config,
-                                )}
-                                on:click={saveRocketConfig}
-                                type="button">Save Configuration</button
-                            >
-                            <button
-                                class="btn btn-primary"
-                                type="button"
-                                on:click={calculate}>Calculate</button
-                            >
-                        </div>
+                        <button
+                            class="btn btn-success col me-2 ms-1"
+                            disabled={object_equals(
+                                status.config,
+                                savedStatus.config,
+                            )}
+                            on:click={saveRocketConfig}
+                            type="button">Save Configuration</button
+                        >
+                        <button
+                            class="btn btn-primary col ms-2 me-1"
+                            type="button"
+                            on:click={calculate}>Calculate</button
+                        >
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button
+                    class="accordion-button collapsed"
+                    type="button"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#flightData"
+                >
+                    Flight Data
+                </button>
+            </h2>
+            <div id="flightData" class="accordion-collapse collapse">
+                <div class="accordion-body">
+                    <div class="input-group">
+                        <input
+                            type="text"
+                            class="form-control"
+                            placeholder="Flight data name"
+                            bind:value={flightDataName}
+                        />
+                        <button
+                            class="btn btn-primary text-center"
+                            disabled={!status.has_data || loadingData}
+                            on:click={readFlightData}
+                        >
+                            {#if loadingData}
+                                Downloading Flight Data... ({dataProgress /
+                                    1000}s)
+                            {:else}
+                                Download Flight Data
+                            {/if}
+                        </button>
                     </div>
                 </div>
             </div>

@@ -62,3 +62,9 @@ export function object_equals(x: any, y: any) {
 
     return true;
 }
+export function invalidUrl(name: string): boolean {
+    return !URL.canParse("http://example.com/" + name) ||
+        name.includes("/") ||
+        name.includes(".") ||
+        name.includes(" ") || name.length == 0;
+}

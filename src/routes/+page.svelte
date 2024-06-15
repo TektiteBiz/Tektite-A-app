@@ -9,6 +9,7 @@
     } from "@tauri-apps/api/fs";
     import { confirm } from "@tauri-apps/api/dialog";
     import { onMount } from "svelte";
+    import { invalidUrl, type Config } from "$lib";
 
     let rockets: FileEntry[] = [];
     async function refreshRockets() {
@@ -20,12 +21,7 @@
 
     let name = "";
     async function createRocket() {
-        if (
-            !URL.canParse("http://example.com/" + name) ||
-            name.includes("/") ||
-            name.includes(".") ||
-            name.includes(" ")
-        ) {
+        if (invalidUrl(name)) {
             alert("Invalid rocket name (must be a valid URL)");
             console.log("OHIO");
             return;
