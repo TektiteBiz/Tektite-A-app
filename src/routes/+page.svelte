@@ -37,12 +37,15 @@
             A: 0.003425,
             mass: 0.5,
             baseCd: 0.5,
-            finCd: 0.5,
+            canardCd: 0.5,
             thrustCurveTime: [0, 0.1, 0.9, 0],
             thrustCurveForce: [0, 100, 100, 0],
             thrustCurveName: "TEKTITE γ-100",
         };
-        await writeFile(await join(dataDir, name, "conf.json"), JSON.stringify(conf));
+        await writeFile(
+            await join(dataDir, name, "conf.json"),
+            JSON.stringify(conf),
+        );
         await refreshRockets();
         name = "";
     }
@@ -57,17 +60,22 @@
 </script>
 
 <h1>My Rockets</h1>
-<div class="input-group mb-3">
-    <input
-        type="text"
-        class="form-control"
-        placeholder="Rocket name"
-        bind:value={name}
-    />
-    <button class="btn btn-outline-success" on:click={createRocket}
-        >Create Rocket <i class="bi bi-rocket-takeoff-fill"></i></button
-    >
-</div>
+<form>
+    <div class="input-group mb-3">
+        <input
+            type="text"
+            class="form-control"
+            placeholder="Rocket name"
+            bind:value={name}
+        />
+        <button
+            class="btn btn-outline-success"
+            type="submit"
+            on:click|preventDefault={createRocket}
+            >Create Rocket <i class="bi bi-rocket-takeoff-fill"></i></button
+        >
+    </div>
+</form>
 
 <div class="list-group">
     {#each rockets as r}

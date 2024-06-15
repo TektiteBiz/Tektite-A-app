@@ -3,7 +3,7 @@ type Config = {
     A: number, // m^2
     mass: number,
     baseCd: number,
-    finCd: number, // How much fin tilt contributes to Cd
+    canardCd: number, // How much fin tilt contributes to Cd
     thrustCurveTime: number[],
     thrustCurveForce: number[],
     thrustCurveName: string,
