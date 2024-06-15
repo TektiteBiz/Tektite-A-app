@@ -69,7 +69,7 @@
             bind:value={name}
         />
         <button
-            class="btn btn-outline-success"
+            class="btn btn-success"
             type="submit"
             on:click|preventDefault={createRocket}
             >Create Rocket <i class="bi bi-rocket-takeoff-fill"></i></button

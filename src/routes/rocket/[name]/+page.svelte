@@ -3,14 +3,38 @@
     import { readTextFile, writeTextFile } from "@tauri-apps/api/fs";
     import { appDataDir, join } from "@tauri-apps/api/path";
     import { invoke } from "@tauri-apps/api/tauri";
-    import { open } from "@tauri-apps/api/dialog";
+    import { open, message } from "@tauri-apps/api/dialog";
     import { onMount } from "svelte";
+    import { object_equals, type Config, type Status } from "$lib";
     import Papa from "papaparse";
     let connected = false;
 
-    let config: Config = <Config>{};
+    let config: Config;
+    let savedStatus: Status;
+    let status: Status;
 
     onMount(loadConfig);
+    onMount(async () => {
+        let conn = await invoke("is_connected");
+        if (conn) {
+            await loadStatus();
+            connected = true;
+        } else {
+            connected = false;
+        }
+    });
+
+    function calculate() {
+        status.config.alpha = config.A * config.rho;
+        status.config.burntime =
+            config.thrustCurveTime[config.thrustCurveTime.length - 1] * 1000;
+        status.config.mass = config.mass;
+    }
+
+    async function saveRocketConfig() {
+        await invoke("config_write", { config: status.config });
+        savedStatus = structuredClone(status);
+    }
 
     async function loadConfig() {
         let val = await readTextFile(
@@ -27,10 +51,27 @@
     }
 
     async function connect() {
-        connected = await invoke("connect");
-        if (!connected) {
-            alert("Failed to connect.");
+        let succ = await invoke("connect");
+        if (!succ) {
+            message("Failed to connect. Is it plugged in?", {
+                type: "warning",
+            });
+            connected = false;
+        } else {
+            await loadStatus();
+            message("Successfully connected!", { type: "info" });
+            connected = true;
         }
+    }
+
+    async function loadStatus() {
+        status = await invoke("get_status");
+        savedStatus = structuredClone(status);
+    }
+
+    async function disconnect() {
+        await invoke("disconnect");
+        connected = false;
     }
 
     async function changeThrustCurve() {
@@ -51,8 +92,14 @@
         config.thrustCurveTime = [];
         config.thrustCurveForce = [];
         for (let i = 5; i < res.length; i++) {
-            config.thrustCurveTime.push(Number(res[i][0]));
-            config.thrustCurveForce.push(Number(res[i][1]));
+            if (
+                i == 5 ||
+                Number(res[i][0]) >
+                    config.thrustCurveTime[config.thrustCurveTime.length - 1]
+            ) {
+                config.thrustCurveTime.push(Number(res[i][0]));
+                config.thrustCurveForce.push(Number(res[i][1]));
+            }
         }
         await saveConfig();
     }
@@ -65,85 +112,221 @@
 <div class="d-flex mt-3">
     <h1 class="justify-content-start">{$page.params.name}</h1>
     <div class="ms-auto d-flex flex-column justify-content-center">
-        <button type="button" class="btn btn-lg btn-primary" on:click={connect}
-            >Connect</button
-        >
+        {#if connected}
+            <button
+                type="button"
+                class="btn btn-lg btn-danger"
+                on:click={disconnect}>Disconnect</button
+            >
+        {:else}
+            <button
+                type="button"
+                class="btn btn-lg btn-primary"
+                on:click={connect}>Connect</button
+            >
+        {/if}
     </div>
 </div>
 
-<h2>Simulation Configuration</h2>
-<form>
-    <div class="row mb-3">
-        <div class="col">
-            <label for="rho" class="form-label">Density of air (kg/m^3)</label>
-            <input
-                id="rho"
-                type="number"
-                class="form-control"
-                on:change={saveConfig}
-                bind:value={config.rho}
-            />
+<div class="accordion mt-3">
+    {#if config}
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button
+                    class="accordion-button"
+                    type="button"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#simConfig"
+                >
+                    Simulation Configuration
+                </button>
+            </h2>
+            <div id="simConfig" class="accordion-collapse collapse show">
+                <div class="accordion-body">
+                    <div class="row mb-3">
+                        <div class="col">
+                            <label for="rho" class="form-label"
+                                >Density of air (kg/m^3)</label
+                            >
+                            <input
+                                id="rho"
+                                type="number"
+                                class="form-control"
+                                on:change={saveConfig}
+                                bind:value={config.rho}
+                            />
+                        </div>
+                        <div class="col">
+                            <label for="A" class="form-label"
+                                >Reference area (m^2)</label
+                            >
+                            <input
+                                id="A"
+                                type="number"
+                                class="form-control"
+                                on:change={saveConfig}
+                                bind:value={config.A}
+                            />
+                        </div>
+                        <div class="col">
+                            <label for="mass" class="form-label"
+                                >Mass (kg)</label
+                            >
+                            <input
+                                id="mass"
+                                type="number"
+                                class="form-control"
+                                on:change={saveConfig}
+                                bind:value={config.mass}
+                            />
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col">
+                            <label for="baseCd" class="form-label"
+                                >Base Coefficient of Drag</label
+                            >
+                            <input
+                                id="baseCd"
+                                type="number"
+                                class="form-control"
+                                on:change={saveConfig}
+                                bind:value={config.baseCd}
+                            />
+                        </div>
+                        <div class="col">
+                            <label for="canardCd" class="form-label"
+                                >Canard Coefficient of Drag</label
+                            >
+                            <input
+                                id="canardCd"
+                                type="number"
+                                class="form-control"
+                                on:change={saveConfig}
+                                bind:value={config.canardCd}
+                            />
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <label for="thrustCurve" class="form-label"
+                            >Thrust Curve</label
+                        >
+                        <div class="col input-group" id="thrustCurve">
+                            <input
+                                disabled
+                                class="form-control"
+                                value={`${config.thrustCurveName} (Burn Time: ${config.thrustCurveTime[config.thrustCurveTime.length - 1]}s)`}
+                            />
+                            <button
+                                class="btn btn-primary"
+                                type="button"
+                                on:click={changeThrustCurve}
+                                >Select Thrust Curve</button
+                            >
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class="col">
-            <label for="A" class="form-label">Reference area (m^2)</label>
-            <input
-                id="A"
-                type="number"
-                class="form-control"
-                on:change={saveConfig}
-                bind:value={config.A}
-            />
+    {/if}
+
+    {#if connected}
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button
+                    class="accordion-button collapsed"
+                    type="button"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#rocketConfig"
+                >
+                    Rocket Configuration
+                </button>
+            </h2>
+            <div id="rocketConfig" class="accordion-collapse collapse">
+                <div class="accordion-body">
+                    <div class="row mb-3">
+                        <div class="col">
+                            <label for="alpha" class="form-label"
+                                >Alpha (Calculate)</label
+                            >
+                            <input
+                                id="alpha"
+                                type="number"
+                                class="form-control"
+                                bind:value={status.config.alpha}
+                            />
+                        </div>
+                        <div class="col">
+                            <label for="burntime" class="form-label"
+                                >Motor Burn Time (ms)</label
+                            >
+                            <input
+                                id="burntime"
+                                type="number"
+                                class="form-control"
+                                bind:value={status.config.burntime}
+                            />
+                        </div>
+                        <div class="col">
+                            <label for="smass" class="form-label"
+                                >Mass (kg)</label
+                            >
+                            <input
+                                id="smass"
+                                type="number"
+                                class="form-control"
+                                bind:value={status.config.mass}
+                            />
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col">
+                            <label for="control" class="form-label"
+                                >Control Method</label
+                            >
+                            <select
+                                bind:value={status.config.control}
+                                id="control"
+                                class="form-select"
+                            >
+                                <option value={false}>Fixed Fin Angle</option>
+                                <option value={true}>Active Control</option>
+                            </select>
+                        </div>
+                        <div class="col">
+                            <label for="param" class="form-label"
+                                >{status.config.control
+                                    ? "Altitude Target (m)"
+                                    : "Fin Angle (0-90 degrees)"}</label
+                            >
+                            <input
+                                id="param"
+                                type="number"
+                                class="form-control"
+                                bind:value={status.config.param}
+                            />
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="btn-group">
+                            <button
+                                class="btn btn-success"
+                                disabled={object_equals(
+                                    status.config,
+                                    savedStatus.config,
+                                )}
+                                on:click={saveRocketConfig}
+                                type="button">Save Configuration</button
+                            >
+                            <button
+                                class="btn btn-primary"
+                                type="button"
+                                on:click={calculate}>Calculate</button
+                            >
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class="col">
-            <label for="mass" class="form-label">Mass (kg)</label>
-            <input
-                id="mass"
-                type="number"
-                class="form-control"
-                on:change={saveConfig}
-                bind:value={config.mass}
-            />
-        </div>
-    </div>
-    <div class="row mb-3">
-        <div class="col">
-            <label for="baseCd" class="form-label"
-                >Base Coefficient of Drag</label
-            >
-            <input
-                id="baseCd"
-                type="number"
-                class="form-control"
-                on:change={saveConfig}
-                bind:value={config.baseCd}
-            />
-        </div>
-        <div class="col">
-            <label for="canardCd" class="form-label"
-                >Canard Coefficient of Drag</label
-            >
-            <input
-                id="canardCd"
-                type="number"
-                class="form-control"
-                on:change={saveConfig}
-                bind:value={config.canardCd}
-            />
-        </div>
-    </div>
-    <div class="row mb-3">
-        <label for="thrustCurve" class="form-label">Thrust Curve</label>
-        <div class="col input-group" id="thrustCurve">
-            <input
-                disabled
-                class="form-control"
-                value={config.thrustCurveName}
-            />
-            <button
-                class="btn btn-primary"
-                type="button"
-                on:click={changeThrustCurve}>Select Thrust Curve</button
-            >
-        </div>
-    </div>
-</form>
+    {/if}
+</div>
