@@ -163,8 +163,10 @@
         await loadConfig();
     }
 
-    let chartData: Record<string, number>[];
+    let chartData: Record<string, number>[] | undefined;
+    let chartDataName = "";
     async function openFlightData(name: string) {
+        chartDataName = name;
         let path = await join(
             await appDataDir(),
             $page.params.name,
@@ -527,8 +529,9 @@
                             on:click={readFlightData}
                         >
                             {#if loadingData}
-                                Downloading Flight Data... ({(dataProgress /
-                                    1000).toFixed(1)}s)
+                                Downloading Flight Data... ({(
+                                    dataProgress / 1000
+                                ).toFixed(1)}s)
                             {:else}
                                 Download Flight Data
                             {/if}
@@ -553,13 +556,20 @@
             <div id="flightData" class="accordion-collapse collapse">
                 <div class="accordion-body">
                     {#if chartData}
+                        <div class="d-flex">
+                            <h2>{chartDataName}</h2>
+                            <button
+                                class="btn btn-danger ms-auto d-flex flex-column justify-content-center"
+                                on:click={() => {
+                                    chartData = undefined;
+                                }}>Close</button
+                            >
+                        </div>
                         <canvas id="chart"></canvas>
                     {:else}
                         <div class="list-group">
                             {#each flightDataList as f}
-                                <li
-                                    class="list-group-item list-group-item-action fs-5"
-                                >
+                                <li class="list-group-item fs-5">
                                     {f}
                                     <div class="btn-group float-end">
                                         <button
