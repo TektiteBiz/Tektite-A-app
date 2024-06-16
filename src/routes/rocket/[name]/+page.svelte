@@ -9,10 +9,12 @@
     import { appDataDir, join } from "@tauri-apps/api/path";
     import { invoke } from "@tauri-apps/api/tauri";
     import { open, message, confirm } from "@tauri-apps/api/dialog";
-    import { onMount } from "svelte";
+    import { onMount, tick } from "svelte";
     import { invalidUrl, object_equals, type Config, type Status } from "$lib";
     import { listen } from "@tauri-apps/api/event";
+    import Chart from "chart.js/auto";
     import Papa from "papaparse";
+    import CrosshairPlugin from "chartjs-plugin-crosshair";
     let connected = false;
 
     let config: Config;
@@ -137,11 +139,14 @@
         await invoke("read_data", { path });
 
         loadingData = false;
+
+        status.has_data = false;
+
+        await loadConfig();
     }
 
     onMount(() => {
         listen("recvdata", (e) => {
-            console.log(e.payload);
             dataProgress = e.payload as number;
         });
     });
@@ -158,6 +163,7 @@
         await loadConfig();
     }
 
+    let chartData: Record<string, number>[];
     async function openFlightData(name: string) {
         let path = await join(
             await appDataDir(),
@@ -165,8 +171,128 @@
             name + ".csv",
         );
         let val = await readTextFile(path);
-        let res = Papa.parse(val, { header: true }).data as string[][];
-        console.log(res);
+        chartData = Papa.parse(val, { header: true }).data as Record<
+            string,
+            number
+        >[];
+        chartData = chartData.filter((x) => x.time);
+
+        const data = {
+            datasets: [
+                {
+                    label: "Altitude (m)",
+                    data: chartData.map((x) => ({
+                        x: x.time / 1000,
+                        y: x.alt,
+                    })),
+                    fill: true,
+                    spanGaps: true,
+                },
+                {
+                    label: "Vertical Velocity (m/s)",
+                    data: chartData.map((x) => ({
+                        x: x.time / 1000,
+                        y: x.vz,
+                    })),
+                    fill: true,
+                    spanGaps: true,
+                },
+                {
+                    label: "Horizontal Velocity (m/s)",
+                    data: chartData.map((x) => ({
+                        x: x.time / 1000,
+                        y: Math.sqrt(x.vx ** 2 + x.vy ** 2),
+                    })),
+                    fill: true,
+                    spanGaps: true,
+                },
+                {
+                    label: "Vertical Acceleration (m/s^2)",
+                    data: chartData.map((x) => ({
+                        x: x.time / 1000,
+                        y: x.az,
+                    })),
+                    fill: true,
+                    spanGaps: true,
+                },
+                {
+                    label: "Canard Angle (degrees)",
+                    data: chartData.map((x) => ({
+                        x: x.time / 1000,
+                        y: x.s1,
+                    })),
+                    fill: true,
+                    spanGaps: true,
+                },
+                {
+                    label: "Predicted Altitude (m)",
+                    data: chartData.map((x) => ({
+                        x: x.time / 1000,
+                        y: x.pre,
+                    })),
+                    fill: true,
+                    spanGaps: true,
+                },
+                {
+                    label: "Temperature (C)",
+                    data: chartData.map((x) => ({
+                        x: x.time / 1000,
+                        y: x.temp,
+                    })),
+                    fill: true,
+                    spanGaps: true,
+                },
+            ],
+        };
+
+        await tick();
+        Chart.register(CrosshairPlugin);
+        const pluginOpts = {
+            tooltip: {
+                mode: "nearest",
+                axis: "x",
+                intersect: false,
+            },
+            crosshair: {
+                sync: {
+                    enabled: false,
+                },
+                zoom: {
+                    enabled: true,
+                    zoomButtonClass: "btn btn-primary",
+                },
+            },
+        };
+        let chart: Chart;
+        chart = new Chart(
+            document.getElementById("chart") as HTMLCanvasElement,
+            {
+                data,
+                type: "line",
+                options: {
+                    normalized: true,
+                    responsive: true,
+                    //animation: true,
+                    datasets: {
+                        line: {
+                            pointRadius: 0, // disable for all `'line'` datasets
+                        },
+                    },
+                    scales: {
+                        x: {
+                            type: "linear",
+                            title: {
+                                text: "Time (s)",
+                                display: true,
+                            },
+                            min: 0,
+                            max: chartData[chartData.length - 1].time / 1000,
+                        },
+                    },
+                    plugins: pluginOpts as any,
+                },
+            },
+        );
     }
 </script>
 
@@ -372,7 +498,7 @@
                             />
                         </div>
                     </div>
-                    <div class="row">
+                    <div class="row mb-3">
                         <button
                             class="btn btn-success col me-2 ms-1"
                             disabled={object_equals(
@@ -426,35 +552,39 @@
             </h2>
             <div id="flightData" class="accordion-collapse collapse">
                 <div class="accordion-body">
-                    <div class="list-group">
-                        {#each flightDataList as f}
-                            <li
-                                class="list-group-item list-group-item-action fs-5"
-                            >
-                                {f}
-                                <div class="btn-group float-end">
-                                    <button
-                                        class="btn btn-primary btn-sm"
-                                        on:click={() => {
-                                            openFlightData(f);
-                                        }}
-                                        type="button"
-                                        ><i
-                                            class="bi bi-file-earmark-arrow-up-fill"
-                                        ></i></button
-                                    >
-                                    <button
-                                        class="btn btn-danger btn-sm"
-                                        on:click={() => {
-                                            deleteFlightData(f);
-                                        }}
-                                        type="button"
-                                        ><i class="bi bi-trash"></i></button
-                                    >
-                                </div>
-                            </li>
-                        {/each}
-                    </div>
+                    {#if chartData}
+                        <canvas id="chart"></canvas>
+                    {:else}
+                        <div class="list-group">
+                            {#each flightDataList as f}
+                                <li
+                                    class="list-group-item list-group-item-action fs-5"
+                                >
+                                    {f}
+                                    <div class="btn-group float-end">
+                                        <button
+                                            class="btn btn-primary btn-sm"
+                                            on:click={() => {
+                                                openFlightData(f);
+                                            }}
+                                            type="button"
+                                            ><i
+                                                class="bi bi-file-earmark-arrow-up-fill"
+                                            ></i></button
+                                        >
+                                        <button
+                                            class="btn btn-danger btn-sm"
+                                            on:click={() => {
+                                                deleteFlightData(f);
+                                            }}
+                                            type="button"
+                                            ><i class="bi bi-trash"></i></button
+                                        >
+                                    </div>
+                                </li>
+                            {/each}
+                        </div>
+                    {/if}
                 </div>
             </div>
         </div>
