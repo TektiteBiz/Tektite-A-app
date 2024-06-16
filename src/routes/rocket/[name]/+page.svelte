@@ -527,8 +527,8 @@
                             on:click={readFlightData}
                         >
                             {#if loadingData}
-                                Downloading Flight Data... ({dataProgress /
-                                    1000}s)
+                                Downloading Flight Data... ({(dataProgress /
+                                    1000).toFixed(1)}s)
                             {:else}
                                 Download Flight Data
                             {/if}
