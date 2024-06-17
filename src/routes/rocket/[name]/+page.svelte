@@ -10,7 +10,13 @@
     import { invoke } from "@tauri-apps/api/tauri";
     import { open, message, confirm } from "@tauri-apps/api/dialog";
     import { onMount, tick } from "svelte";
-    import { invalidUrl, object_equals, type Config, type Status } from "$lib";
+    import {
+        invalidUrl,
+        object_equals,
+        type Config,
+        type Status,
+        type SimData,
+    } from "$lib";
     import { listen } from "@tauri-apps/api/event";
     import Chart from "chart.js/auto";
     import Papa from "papaparse";
@@ -38,6 +44,8 @@
         status.config.burntime =
             config.thrustCurveTime[config.thrustCurveTime.length - 1] * 1000;
         status.config.mass = config.mass;
+        status.config.control = config.control;
+        status.config.param = config.param;
     }
 
     async function saveRocketConfig() {
@@ -63,6 +71,9 @@
             await join(await appDataDir(), $page.params.name, "conf.json"),
             JSON.stringify(config),
         );
+        if (chartData) {
+            calcSim();
+        }
     }
 
     async function connect() {
@@ -165,6 +176,7 @@
 
     let chartData: Record<string, number>[] | undefined;
     let chartDataName = "";
+    let chart: Chart;
     async function openFlightData(name: string) {
         chartDataName = name;
         let path = await join(
@@ -244,6 +256,36 @@
                     fill: true,
                     spanGaps: true,
                 },
+                {
+                    label: "Simulated Altitude (m)",
+                    data: [],
+                    fill: true,
+                    spanGaps: true,
+                },
+                {
+                    label: "Simulated Vertical Velocity (m/s)",
+                    data: [],
+                    fill: true,
+                    spanGaps: true,
+                },
+                {
+                    label: "Simulated Horizontal Velocity (m/s)",
+                    data: [],
+                    fill: true,
+                    spanGaps: true,
+                },
+                {
+                    label: "Simulated Vertical Acceleration (m/s^2)",
+                    data: [],
+                    fill: true,
+                    spanGaps: true,
+                },
+                {
+                    label: "Simulated Canard Angle (degrees)",
+                    data: [],
+                    fill: true,
+                    spanGaps: true,
+                },
             ],
         };
 
@@ -265,7 +307,6 @@
                 },
             },
         };
-        let chart: Chart;
         chart = new Chart(
             document.getElementById("chart") as HTMLCanvasElement,
             {
@@ -295,6 +336,43 @@
                 },
             },
         );
+
+        calcSim();
+    }
+
+    let loadingSim = false;
+    let simStartTime: number = 0;
+
+    function setChartData(name: string, time: number[], data: number[]) {
+        let ind = chart.data.datasets.findIndex((x) => x.label == name);
+        chart.data.datasets[ind].data = time.map((x, i) => ({
+            x: x,
+            y: data[i],
+        }));
+    }
+    async function calcSim() {
+        loadingSim = true;
+        // Get index of nearest data time to simStartTime
+        let idx = chartData!.findIndex((x) => x.time >= simStartTime * 1000);
+        let res = (await invoke("calc_sim", {
+            config,
+            times: chartData!.map((x) => Number(x.time / 1000)).slice(idx),
+            vx0: Math.sqrt(chartData![idx].vx ** 2 + chartData![idx].vy ** 2),
+            vz0: Number(chartData![idx].vz),
+            x0: Number(chartData![idx].alt),
+        })) as SimData;
+        res.time = res.time.map((x) => Math.round(x * 1000) / 1000); // Fix floating point errors
+        setChartData("Simulated Altitude (m)", res.time, res.alt);
+        setChartData("Simulated Vertical Velocity (m/s)", res.time, res.vz);
+        setChartData("Simulated Horizontal Velocity (m/s)", res.time, res.vx);
+        setChartData(
+            "Simulated Vertical Acceleration (m/s^2)",
+            res.time,
+            res.az,
+        );
+        setChartData("Simulated Canard Angle (degrees)", res.time, res.angle);
+        chart.update();
+        loadingSim = false;
     }
 </script>
 
@@ -399,6 +477,50 @@
                                 bind:value={config.canardCd}
                             />
                         </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col">
+                            <label for="controlSim" class="form-label"
+                                >Control Method</label
+                            >
+                            <select
+                                bind:value={config.control}
+                                id="controlSim"
+                                class="form-select"
+                                on:change={saveConfig}
+                            >
+                                <option value={false}>Fixed Fin Angle</option>
+                                <option value={true}>Active Control</option>
+                            </select>
+                        </div>
+                        <div class="col">
+                            <label for="simParam" class="form-label"
+                                >{config.control
+                                    ? "Altitude Target (m)"
+                                    : "Fin Angle (0-90 degrees)"}</label
+                            >
+                            <input
+                                id="simParam"
+                                type="number"
+                                class="form-control"
+                                on:change={saveConfig}
+                                bind:value={config.param}
+                            />
+                        </div>
+                        {#if config.control}
+                            <div class="col">
+                                <label for="P" class="form-label"
+                                    >Controller Gain (Kp)</label
+                                >
+                                <input
+                                    id="P"
+                                    type="number"
+                                    class="form-control"
+                                    on:change={saveConfig}
+                                    bind:value={config.P}
+                                />
+                            </div>
+                        {/if}
                     </div>
                     <div class="row mb-3">
                         <label for="thrustCurve" class="form-label"
@@ -565,6 +687,20 @@
                                 }}>Close</button
                             >
                         </div>
+                        <label for="startTime" class="form-label"
+                            >Sim Start Time ({simStartTime.toFixed(1)}s)</label
+                        >
+                        <input
+                            type="range"
+                            class="form-range"
+                            id="startTime"
+                            bind:value={simStartTime}
+                            min={chartData[0].time / 1000}
+                            max={chartData[chartData.length - 1].time / 1000}
+                            step={1 / 1000}
+                            on:change={calcSim}
+                            disabled={loadingSim}
+                        />
                         <canvas id="chart"></canvas>
                     {:else}
                         <div class="list-group">

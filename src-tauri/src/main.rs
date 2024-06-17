@@ -4,6 +4,9 @@
 mod connection;
 use connection::{config_write, connect, disconnect, get_status, is_connected, read_data};
 
+mod sim;
+use sim::calc_sim;
+
 fn main() {
     tauri::Builder::default()
         .manage(connection::SerialPortState(std::sync::Mutex::new(None)))
@@ -13,7 +16,8 @@ fn main() {
             is_connected,
             get_status,
             config_write,
-            read_data
+            read_data,
+            calc_sim
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

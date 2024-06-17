@@ -7,6 +7,9 @@ export type Config = {
     thrustCurveTime: number[],
     thrustCurveForce: number[],
     thrustCurveName: string,
+    control: boolean,
+    param: number,
+    P: number,
 }
 
 export type Status = {
@@ -14,7 +17,7 @@ export type Status = {
     config: {
         alpha: number,
         burntime: number,
-        control: false,
+        control: boolean,
         mass: number,
         param: number,
         s1min: number,
@@ -25,6 +28,15 @@ export type Status = {
         s3max: number,
         init: number,
     }
+}
+
+export type SimData = {
+    time: number[],
+    alt: number[],
+    vz: number[],
+    vx: number[],
+    az: number[],
+    angle: number[],
 }
 
 export function object_equals(x: any, y: any) {
