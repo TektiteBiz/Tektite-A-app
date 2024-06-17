@@ -8,6 +8,7 @@ export type Config = {
     thrustCurveForce: number[],
     thrustCurveName: string,
     control: boolean,
+    startTime: number,
     param: number,
     P: number,
 }
@@ -16,7 +17,8 @@ export type Status = {
     has_data: boolean,
     config: {
         alpha: number,
-        burntime: number,
+        starttime: number,
+        P: number,
         control: boolean,
         mass: number,
         param: number,

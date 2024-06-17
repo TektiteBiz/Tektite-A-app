@@ -41,11 +41,11 @@
 
     function calculate() {
         status.config.alpha = config.A * config.rho;
-        status.config.burntime =
-            config.thrustCurveTime[config.thrustCurveTime.length - 1] * 1000;
         status.config.mass = config.mass;
         status.config.control = config.control;
         status.config.param = config.param;
+        status.config.P = config.P;
+        status.config.starttime = Math.round(config.startTime * 1000);
     }
 
     async function saveRocketConfig() {
@@ -371,6 +371,7 @@
             res.az,
         );
         setChartData("Simulated Canard Angle (degrees)", res.time, res.angle);
+        console.log(res);
         chart.update();
         loadingSim = false;
     }
@@ -477,6 +478,20 @@
                                 bind:value={config.canardCd}
                             />
                         </div>
+                        {#if config.control}
+                            <div class="col">
+                                <label for="P" class="form-label"
+                                    >Controller Gain (Kp)</label
+                                >
+                                <input
+                                    id="P"
+                                    type="number"
+                                    class="form-control"
+                                    on:change={saveConfig}
+                                    bind:value={config.P}
+                                />
+                            </div>
+                        {/if}
                     </div>
                     <div class="row mb-3">
                         <div class="col">
@@ -507,20 +522,20 @@
                                 bind:value={config.param}
                             />
                         </div>
-                        {#if config.control}
-                            <div class="col">
-                                <label for="P" class="form-label"
-                                    >Controller Gain (Kp)</label
-                                >
-                                <input
-                                    id="P"
-                                    type="number"
-                                    class="form-control"
-                                    on:change={saveConfig}
-                                    bind:value={config.P}
-                                />
-                            </div>
-                        {/if}
+                        <div class="col">
+                            <label for="simStarttime" class="form-label"
+                                >{config.control
+                                    ? "Fin Tilt Start Time (s)"
+                                    : "Active Control Start Time (s)"}</label
+                            >
+                            <input
+                                id="simStarttime"
+                                type="number"
+                                class="form-control"
+                                on:change={saveConfig}
+                                bind:value={config.startTime}
+                            />
+                        </div>
                     </div>
                     <div class="row mb-3">
                         <label for="thrustCurve" class="form-label"
@@ -572,14 +587,14 @@
                             />
                         </div>
                         <div class="col">
-                            <label for="burntime" class="form-label"
-                                >Motor Burn Time (ms)</label
+                            <label for="starttime" class="form-label"
+                                >Control Start Time (ms)</label
                             >
                             <input
-                                id="burntime"
+                                id="starttime"
                                 type="number"
                                 class="form-control"
-                                bind:value={status.config.burntime}
+                                bind:value={status.config.starttime}
                             />
                         </div>
                         <div class="col">
@@ -621,6 +636,19 @@
                                 bind:value={status.config.param}
                             />
                         </div>
+                        {#if status.config.control}
+                            <div class="col">
+                                <label for="P" class="form-label"
+                                    >Controller Gain (Kp)</label
+                                >
+                                <input
+                                    id="P"
+                                    type="number"
+                                    class="form-control"
+                                    bind:value={status.config.P}
+                                />
+                            </div>
+                        {/if}
                     </div>
                     <div class="row mb-3">
                         <button

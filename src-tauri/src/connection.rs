@@ -66,7 +66,8 @@ pub struct Config {
     s3max: i32,
     control: bool,
     param: f32,
-    burntime: u32,
+    starttime: u32,
+    P: f32,
     alpha: f32,
     mass: f32,
 }

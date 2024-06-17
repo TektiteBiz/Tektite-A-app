@@ -12,6 +12,7 @@ pub struct SimConfig {
     thrustCurveForce: Vec<f32>,
     thrustCurveName: String,
     control: bool,
+    startTime: f32,
     param: f32,
     P: f32,
 }
@@ -99,7 +100,7 @@ fn solve_iter(
     )
 }
 
-const H: f32 = 0.2;
+const H: f32 = 0.1;
 pub fn get_apogee(config: &SimConfig, t0: f32, vx0: f32, vz0: f32, x0: f32) -> f32 {
     let mut vx = vx0;
     let mut vz = vz0;
@@ -127,11 +128,12 @@ pub fn calc_sim(config: SimConfig, times: Vec<f32>, vx0: f32, vz0: f32, x0: f32)
         result.vz.push(vz);
         result.vx.push(vx);
         result.az.push(az);
+        result.angle.push(angle);
         if vz < 0.0 {
             break;
         }
-        if config.control && times[i] > config.thrustCurveTime[config.thrustCurveTime.len() - 1] {
-            angle += config.P * (get_apogee(&config, times[i - 1], vx, vz, x) - config.param);
+        if config.control && times[i] > config.startTime {
+            angle += config.P * (get_apogee(&config, times[i], vx, vz, x) - config.param);
             if angle < 0.0 {
                 angle = 0.0;
             } else if angle > 90.0 {

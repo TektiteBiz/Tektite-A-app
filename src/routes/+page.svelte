@@ -37,6 +37,10 @@
             thrustCurveTime: [0, 0.1, 0.9, 0],
             thrustCurveForce: [0, 100, 100, 0],
             thrustCurveName: "TEKTITE γ-100",
+            control: true,
+            startTime: 1.0,
+            param: 90,
+            P: 50,
         };
         await writeFile(
             await join(dataDir, name, "conf.json"),
