@@ -101,13 +101,13 @@ fn solve_iter(
 }
 
 const H: f32 = 0.1;
-pub fn get_apogee(config: &SimConfig, t0: f32, vx0: f32, vz0: f32, x0: f32) -> f32 {
+pub fn get_apogee(config: &SimConfig, t0: f32, vx0: f32, vz0: f32, x0: f32, angle: f32) -> f32 {
     let mut vx = vx0;
     let mut vz = vz0;
     let mut x = x0;
     let mut t = t0;
     while t0 <= 0.000001 || vz > 0.0 {
-        (x, vz, vx) = solve_iter(&config, t, x, vz, vx, 0.0, H);
+        (x, vz, vx) = solve_iter(&config, t, x, vz, vx, angle, H);
         t += H;
     }
     x
@@ -133,7 +133,7 @@ pub fn calc_sim(config: SimConfig, times: Vec<f32>, vx0: f32, vz0: f32, x0: f32)
             break;
         }
         if config.control && times[i] > config.startTime {
-            angle += config.P * (get_apogee(&config, times[i], vx, vz, x) - config.param);
+            angle += config.P * (get_apogee(&config, times[i], vx, vz, x, angle) - config.param);
             if angle < 0.0 {
                 angle = 0.0;
             } else if angle > 90.0 {
