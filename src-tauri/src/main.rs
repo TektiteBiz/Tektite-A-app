@@ -2,7 +2,9 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod connection;
-use connection::{config_write, connect, disconnect, get_status, is_connected, read_data};
+use connection::{
+    config_write, connect, disconnect, get_status, is_connected, read_data, servo_test,
+};
 
 mod sim;
 use sim::calc_sim;
@@ -17,7 +19,8 @@ fn main() {
             get_status,
             config_write,
             read_data,
-            calc_sim
+            calc_sim,
+            servo_test
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

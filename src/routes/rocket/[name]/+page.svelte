@@ -93,6 +93,7 @@
     async function loadStatus() {
         status = await invoke("get_status");
         savedStatus = structuredClone(status);
+        updateServoVal();
     }
 
     async function disconnect() {
@@ -374,6 +375,35 @@
         console.log(res);
         chart.update();
         loadingSim = false;
+    }
+
+    let servovar: string = "s1min";
+    let servoval: number = 0;
+    async function servotest() {
+        let statusConfig = {
+            alpha: 0,
+            starttime: 0,
+            P: 0,
+            control: false,
+            mass: 0,
+            param: 0,
+            s1min: 0,
+            s2min: 0,
+            s3min: 0,
+            s1max: 0,
+            s2max: 0,
+            s3max: 0,
+            init: 0,
+        };
+        (statusConfig as any)[servovar] = servoval;
+        await invoke("servo_test", {
+            config: statusConfig,
+            max: servovar.endsWith("max"),
+        });
+        (status.config as any)[servovar] = servoval;
+    }
+    function updateServoVal() {
+        servoval = (status.config as any)[servovar];
     }
 </script>
 
@@ -665,6 +695,65 @@
                             type="button"
                             on:click={calculate}>Calculate</button
                         >
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col">
+                            <label for="servovar" class="form-label"
+                                >Servo Port</label
+                            >
+                            <select
+                                bind:value={servovar}
+                                id="servovar"
+                                class="form-select"
+                                on:change={updateServoVal}
+                            >
+                                <option value={"s1min"}
+                                    >Servo Port 1 (S1) Minimum</option
+                                >
+                                <option value={"s1max"}
+                                    >Servo Port 1 (S1) Maximum</option
+                                >
+                                <option value={"s2min"}
+                                    >Servo Port 1 (S2) Minimum</option
+                                >
+                                <option value={"s2max"}
+                                    >Servo Port 1 (S2) Maximum</option
+                                >
+                                <option value={"s3min"}
+                                    >Servo Port 1 (S3) Minimum</option
+                                >
+                                <option value={"s3max"}
+                                    >Servo Port 1 (S3) Maximum</option
+                                >
+                            </select>
+                        </div>
+                        <div class="col">
+                            <label for="servoval" class="form-label"
+                                >Servo Range</label
+                            >
+                            <form>
+                                <div class="input-group" id="servoval">
+                                    <input
+                                        id="servoval"
+                                        type="number"
+                                        class="form-control"
+                                        bind:value={servoval}
+                                    />
+                                    <button
+                                        class="btn btn-primary"
+                                        type="submit"
+                                        on:click|preventDefault={servotest}
+                                        >Test</button
+                                    >
+                                </div>
+                                <div class="form-text">
+                                    When testing, the position of the canard
+                                    should be {servovar.endsWith("min")
+                                        ? "vertical"
+                                        : "horizontal"}.
+                                </div>
+                            </form>
+                        </div>
                     </div>
                     <div class="input-group">
                         <input

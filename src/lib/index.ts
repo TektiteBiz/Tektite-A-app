@@ -13,23 +13,25 @@ export type Config = {
     P: number,
 }
 
+export type StatusConfig = {
+    alpha: number,
+    starttime: number,
+    P: number,
+    control: boolean,
+    mass: number,
+    param: number,
+    s1min: number,
+    s2min: number,
+    s3min: number,
+    s1max: number,
+    s2max: number,
+    s3max: number,
+    init: number,
+};
+
 export type Status = {
     has_data: boolean,
-    config: {
-        alpha: number,
-        starttime: number,
-        P: number,
-        control: boolean,
-        mass: number,
-        param: number,
-        s1min: number,
-        s2min: number,
-        s3min: number,
-        s1max: number,
-        s2max: number,
-        s3max: number,
-        init: number,
-    }
+    config: StatusConfig,
 }
 
 export type SimData = {

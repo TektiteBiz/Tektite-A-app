@@ -128,6 +128,23 @@ pub fn config_write(port: tauri::State<SerialPortState>, config: Config) {
     );
 }
 
+#[tauri::command]
+pub fn servo_test(port: tauri::State<SerialPortState>, config: Config, max: bool) {
+    let mut binding = port.0.lock().unwrap();
+    let mut val = binding.as_mut().unwrap();
+    send_command(
+        &mut val,
+        Command {
+            command_type: if max {
+                CommandType::ServoMax
+            } else {
+                CommandType::ServoMin
+            } as u8,
+            config,
+        },
+    );
+}
+
 fn send_command(port: &mut Box<dyn serialport::SerialPort>, command: Command) {
     let data = unsafe {
         slice::from_raw_parts(
