@@ -100,7 +100,7 @@ fn solve_iter(
     )
 }
 
-const H: f32 = 0.05;
+const H: f32 = 0.1;
 pub fn get_apogee(config: &SimConfig, t0: f32, vx0: f32, vz0: f32, x0: f32, angle: f32) -> f32 {
     let mut vx = vx0;
     let mut vz = vz0;

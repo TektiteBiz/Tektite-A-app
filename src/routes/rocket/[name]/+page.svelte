@@ -144,13 +144,13 @@
             $page.params.name,
             flightDataName + ".csv",
         );
-        flightDataName = "";
         dataProgress = 0;
         loadingData = true;
 
         await invoke("read_data", { path });
 
         loadingData = false;
+        flightDataName = "";
 
         status.has_data = false;
 
@@ -714,16 +714,16 @@
                                     >Servo Port 1 (S1) Maximum</option
                                 >
                                 <option value={"s2min"}
-                                    >Servo Port 1 (S2) Minimum</option
+                                    >Servo Port 2 (S2) Minimum</option
                                 >
                                 <option value={"s2max"}
-                                    >Servo Port 1 (S2) Maximum</option
+                                    >Servo Port 2 (S2) Maximum</option
                                 >
                                 <option value={"s3min"}
-                                    >Servo Port 1 (S3) Minimum</option
+                                    >Servo Port 3 (S3) Minimum</option
                                 >
                                 <option value={"s3max"}
-                                    >Servo Port 1 (S3) Maximum</option
+                                    >Servo Port 3 (S3) Maximum</option
                                 >
                             </select>
                         </div>
