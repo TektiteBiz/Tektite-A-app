@@ -18,7 +18,7 @@
         type SimData,
     } from "$lib";
     import { listen } from "@tauri-apps/api/event";
-    import Chart from "chart.js/auto";
+    import Chart, { type ChartData } from "chart.js/auto";
     import Papa from "papaparse";
     import CrosshairPlugin from "chartjs-plugin-crosshair";
     let connected = false;
@@ -178,6 +178,7 @@
     let chartData: Record<string, number>[] | undefined;
     let chartDataName = "";
     let chart: Chart;
+    let data: ChartData;
     async function openFlightData(name: string) {
         chartDataName = name;
         let path = await join(
@@ -192,7 +193,7 @@
         >[];
         chartData = chartData.filter((x) => x.time);
 
-        const data = {
+        data = {
             datasets: [
                 {
                     label: "Altitude (m)",
@@ -344,11 +345,48 @@
     let loadingSim = false;
     let simStartTime: number = 0;
 
-    function setChartData(name: string, time: number[], data: number[]) {
-        let ind = chart.data.datasets.findIndex((x) => x.label == name);
-        chart.data.datasets[ind].data = time.map((x, i) => ({
+    let showMotion = true;
+    let showEnvironment = true;
+    let showSim = true;
+    function updateChartData() {
+        let dat = structuredClone(data);
+        if (!showMotion) {
+            dat.datasets = dat.datasets.filter(
+                (x) =>
+                    x.label != "Altitude (m)" &&
+                    x.label != "Vertical Velocity (m/s)" &&
+                    x.label != "Horizontal Velocity (m/s)" &&
+                    x.label != "Vertical Acceleration (m/s^2)",
+            );
+        }
+        if (!showEnvironment) {
+            dat.datasets = dat.datasets.filter(
+                (x) =>
+                    x.label != "Temperature (C)" &&
+                    x.label != "Canard Angle (degrees)" &&
+                    x.label != "Predicted Altitude (m)",
+            );
+        }
+        if (!showSim) {
+            dat.datasets = dat.datasets.filter(
+                (x) =>
+                    x.label != "Simulated Altitude (m)" &&
+                    x.label != "Simulated Vertical Velocity (m/s)" &&
+                    x.label != "Simulated Horizontal Velocity (m/s)" &&
+                    x.label != "Simulated Vertical Acceleration (m/s^2)" &&
+                    x.label != "Simulated Canard Angle (degrees)",
+            );
+        }
+
+        chart.data = dat;
+        chart.update();
+    }
+
+    function setChartData(name: string, time: number[], values: number[]) {
+        let ind = data.datasets.findIndex((x) => x.label == name);
+        data.datasets[ind].data = time.map((x, i) => ({
             x: x,
-            y: data[i],
+            y: values[i],
         }));
     }
     async function calcSim() {
@@ -372,8 +410,7 @@
             res.az,
         );
         setChartData("Simulated Canard Angle (degrees)", res.time, res.angle);
-        console.log(res);
-        chart.update();
+        updateChartData();
         loadingSim = false;
     }
 
@@ -804,20 +841,65 @@
                                 }}>Close</button
                             >
                         </div>
-                        <label for="startTime" class="form-label"
-                            >Sim Start Time ({simStartTime.toFixed(1)}s)</label
-                        >
-                        <input
-                            type="range"
-                            class="form-range"
-                            id="startTime"
-                            bind:value={simStartTime}
-                            min={chartData[0].time / 1000}
-                            max={chartData[chartData.length - 1].time / 1000}
-                            step={1 / 1000}
-                            on:change={calcSim}
-                            disabled={loadingSim}
-                        />
+                        <div class="form-check">
+                            <input
+                                class="form-check-input"
+                                type="checkbox"
+                                bind:checked={showMotion}
+                                on:change={updateChartData}
+                                id="showMotion"
+                            />
+                            <label class="form-check-label" for="showMotion">
+                                Show Motion Data
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input
+                                class="form-check-input"
+                                type="checkbox"
+                                bind:checked={showEnvironment}
+                                on:change={updateChartData}
+                                id="showEnvironment"
+                            />
+                            <label
+                                class="form-check-label"
+                                for="showEnvironment"
+                            >
+                                Show Environment and Control System Data
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input
+                                class="form-check-input"
+                                type="checkbox"
+                                bind:checked={showSim}
+                                on:change={updateChartData}
+                                id="showSim"
+                            />
+                            <label class="form-check-label" for="showSim">
+                                Show Simulation Data
+                            </label>
+                        </div>
+
+                        {#if showSim}
+                            <label for="startTime" class="form-label"
+                                >Sim Start Time ({simStartTime.toFixed(
+                                    1,
+                                )}s)</label
+                            >
+                            <input
+                                type="range"
+                                class="form-range"
+                                id="startTime"
+                                bind:value={simStartTime}
+                                min={chartData[0].time / 1000}
+                                max={chartData[chartData.length - 1].time /
+                                    1000}
+                                step={1 / 1000}
+                                on:change={calcSim}
+                                disabled={loadingSim}
+                            />
+                        {/if}
                         <canvas id="chart"></canvas>
                     {:else}
                         <div class="list-group">
