@@ -841,6 +841,64 @@
                                 }}>Close</button
                             >
                         </div>
+                        <div class="row mb-3 mt-3">
+                            <div class="col">
+                                <label for="flightTime" class="form-label"
+                                    >Apogee</label
+                                >
+                                <input
+                                    type="text"
+                                    class="form-control"
+                                    value={`${Math.max(
+                                        ...chartData.map((x) => x.alt),
+                                    ).toFixed(2)}m`}
+                                    disabled
+                                />
+                            </div>
+                            <div class="col">
+                                <label for="flightTime" class="form-label"
+                                    >Flight Time</label
+                                >
+                                <input
+                                    type="text"
+                                    class="form-control"
+                                    value={`${(
+                                        chartData[chartData.length - 1].time /
+                                        1000
+                                    ).toFixed(2)}s`}
+                                    disabled
+                                />
+                            </div>
+                            <div class="col">
+                                <label for="flightTime" class="form-label"
+                                    >Peak Velocity</label
+                                >
+                                <input
+                                    type="text"
+                                    class="form-control"
+                                    value={`${Math.max(
+                                        ...chartData.map((x) => x.vz),
+                                    ).toFixed(2)}m/s`}
+                                    disabled
+                                />
+                            </div>
+                            <div class="col">
+                                <label for="flightTime" class="form-label"
+                                    >Peak Motor Acceleration</label
+                                >
+                                <input
+                                    type="text"
+                                    class="form-control"
+                                    value={`${Math.max(
+                                        ...chartData.map((x) =>
+                                            x.state == 2 ? x.az : 0,
+                                        ),
+                                    ).toFixed(2)}m/s^2`}
+                                    disabled
+                                />
+                            </div>
+                        </div>
+                        <h4>Chart Options</h4>
                         <div class="form-check">
                             <input
                                 class="form-check-input"
@@ -883,7 +941,7 @@
 
                         {#if showSim}
                             <label for="startTime" class="form-label"
-                                >Sim Start Time ({simStartTime.toFixed(
+                                >Simulation Start Time ({simStartTime.toFixed(
                                     1,
                                 )}s)</label
                             >
