@@ -60,10 +60,9 @@
         );
         config = JSON.parse(val);
 
-        let res = await readDir(await join(dataDir, $page.params.name));
-        flightDataList = res
-            .filter((x) => x.name?.endsWith(".csv"))
-            .map((x) => x.name!.slice(0, -4));
+        flightDataList = (await invoke("read_flight_data", {
+            path: await join(dataDir, $page.params.name),
+        })) as string[];
     }
 
     async function saveConfig() {

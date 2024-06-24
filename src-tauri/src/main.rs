@@ -9,6 +9,9 @@ use connection::{
 mod sim;
 use sim::calc_sim;
 
+mod fs;
+use fs::read_flight_data;
+
 fn main() {
     tauri::Builder::default()
         .manage(connection::SerialPortState(std::sync::Mutex::new(None)))
@@ -20,7 +23,8 @@ fn main() {
             config_write,
             read_data,
             calc_sim,
-            servo_test
+            servo_test,
+            read_flight_data
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
