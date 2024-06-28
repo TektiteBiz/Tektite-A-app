@@ -975,6 +975,24 @@
                                             ></i></button
                                         >
                                         <button
+                                            class="btn btn-secondary btn-sm"
+                                            on:click={async () => {
+                                                await invoke(
+                                                    "show_item_in_folder",
+                                                    {
+                                                        path: await join(
+                                                            await appDataDir(),
+                                                            $page.params.name,
+                                                            f + ".csv",
+                                                        ),
+                                                    },
+                                                );
+                                            }}
+                                            type="button"
+                                            ><i class="bi bi-folder-symlink"
+                                            ></i></button
+                                        >
+                                        <button
                                             class="btn btn-danger btn-sm"
                                             on:click={() => {
                                                 deleteFlightData(f);

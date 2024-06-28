@@ -10,7 +10,7 @@ mod sim;
 use sim::calc_sim;
 
 mod fs;
-use fs::read_flight_data;
+use fs::{read_flight_data, show_item_in_folder};
 
 fn main() {
     tauri::Builder::default()
@@ -24,8 +24,16 @@ fn main() {
             read_data,
             calc_sim,
             servo_test,
-            read_flight_data
+            read_flight_data,
+            show_item_in_folder
         ])
+        .setup(|app| {
+            #[cfg(target_os = "linux")]
+            app.manage(DbusState(Mutex::new(
+                dbus::blocking::SyncConnection::new_session().ok(),
+            )));
+            Ok(())
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
