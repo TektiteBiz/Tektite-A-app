@@ -187,6 +187,7 @@ pub struct Frame {
     s3: f32,
 
     state: u8,
+    samples: u8,
 }
 
 #[repr(C, packed)]
