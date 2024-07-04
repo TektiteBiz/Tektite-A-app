@@ -132,12 +132,17 @@ pub fn calc_sim(config: SimConfig, times: Vec<f32>, vx0: f32, vz0: f32, x0: f32)
         if vz < 0.0 {
             break;
         }
-        if config.control && times[i] > config.startTime {
-            angle += config.P * (get_apogee(&config, times[i], vx, vz, x, angle) - config.param);
-            if angle < 0.0 {
-                angle = 0.0;
-            } else if angle > 90.0 {
-                angle = 90.0;
+        if times[i] > config.startTime {
+            if config.control {
+                angle +=
+                    config.P * (get_apogee(&config, times[i], vx, vz, x, angle) - config.param);
+                if angle < 0.0 {
+                    angle = 0.0;
+                } else if angle > 90.0 {
+                    angle = 90.0;
+                }
+            } else {
+                angle = config.param;
             }
         }
     }
