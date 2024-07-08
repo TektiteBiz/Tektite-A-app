@@ -234,7 +234,7 @@
                     label: "Canard Angle (degrees)",
                     data: chartData.map((x) => ({
                         x: x.time / 1000,
-                        y: x.s1,
+                        y: x.servo,
                     })),
                     fill: true,
                     spanGaps: true,

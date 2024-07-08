@@ -167,7 +167,7 @@ pub struct Frame {
     vy: f32,
     az: f32,
     pre: f32,
-    s1: f32,
+    servo: f32,
 
     ax: f32,
     ay: f32,
@@ -179,12 +179,11 @@ pub struct Frame {
     gyr: f32,
     gzr: f32,
 
+    target: f32,
+
     altr: f32,
     baro: f32,
     temp: f32,
-
-    s2: f32,
-    s3: f32,
 
     state: u8,
     samples: u8,
