@@ -101,8 +101,8 @@ fn solve_iter(
 }
 
 const H: f32 = 0.1;
-pub fn get_apogee(config: &SimConfig, t0: f32, vx0: f32, vz0: f32, x0: f32, angle: f32) -> f32 {
-    let mut vx = vx0;
+pub fn get_apogee(config: &SimConfig, t0: f32, vz0: f32, x0: f32, angle: f32) -> f32 {
+    let mut vx = 0.0;
     let mut vz = vz0;
     let mut x = x0;
     let mut t = t0;
@@ -113,6 +113,9 @@ pub fn get_apogee(config: &SimConfig, t0: f32, vx0: f32, vz0: f32, x0: f32, angl
     x
 }
 
+const DELAY: f32 = 0.1; // Seconds
+const CANARDVEL: f32 = 667.0; // deg/s
+
 #[tauri::command(async)]
 pub fn calc_sim(config: SimConfig, times: Vec<f32>, vx0: f32, vz0: f32, x0: f32) -> SimResult {
     let mut result = SimResult::default();
@@ -120,9 +123,18 @@ pub fn calc_sim(config: SimConfig, times: Vec<f32>, vx0: f32, vz0: f32, x0: f32)
     let mut vz = vz0;
     let mut x = x0;
     let mut angle: f32 = 0.0;
+    let mut realang: f32 = 0.0;
     for i in 1..times.len() {
-        let (az, _) = calc_a(&config, times[i], vz, vx, angle);
-        (x, vz, vx) = solve_iter(&config, times[i], x, vz, vx, angle, times[i] - times[i - 1]);
+        let (az, _) = calc_a(&config, times[i], vz, vx, realang);
+        (x, vz, vx) = solve_iter(
+            &config,
+            times[i],
+            x,
+            vz,
+            vx,
+            realang,
+            times[i] - times[i - 1],
+        );
         result.time.push(times[i]);
         result.alt.push(x);
         result.vz.push(vz);
@@ -132,10 +144,21 @@ pub fn calc_sim(config: SimConfig, times: Vec<f32>, vx0: f32, vz0: f32, x0: f32)
         if vz < 0.0 {
             break;
         }
+
+        // Get delayed value
+        let mut xd = 0.0;
+        let mut vd = 0.0;
+        for j in 0..(i - 1) {
+            if result.time[i - 1] - result.time[j] <= DELAY {
+                xd = result.alt[j];
+                vd = result.vz[j];
+                break;
+            }
+        }
+
         if times[i] > config.startTime {
             if config.control {
-                angle +=
-                    config.P * (get_apogee(&config, times[i], vx, vz, x, angle) - config.param);
+                angle += config.P * (get_apogee(&config, times[i], vd, xd, realang) - config.param);
                 if angle < 0.0 {
                     angle = 0.0;
                 } else if angle > 90.0 {
@@ -143,6 +166,23 @@ pub fn calc_sim(config: SimConfig, times: Vec<f32>, vx0: f32, vz0: f32, x0: f32)
                 }
             } else {
                 angle = config.param;
+            }
+
+            // Update realang
+            if (angle - realang).abs() > CANARDVEL * (times[i] - times[i - 1]) {
+                if angle > realang {
+                    realang += CANARDVEL * (times[i] - times[i - 1]);
+                    if realang > angle {
+                        realang = angle;
+                    }
+                } else if angle < realang {
+                    realang -= CANARDVEL * (times[i] - times[i - 1]);
+                    if realang < angle {
+                        realang = angle;
+                    }
+                }
+            } else {
+                realang = angle;
             }
         }
     }
