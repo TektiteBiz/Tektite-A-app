@@ -184,6 +184,8 @@ pub fn calc_sim(config: SimConfig, times: Vec<f32>, vx0: f32, vz0: f32, x0: f32)
             } else {
                 realang = angle;
             }
+        } else {
+            angle = 3.0;
         }
     }
     result
