@@ -343,6 +343,7 @@
 
     let loadingSim = false;
     let simStartTime: number = 0;
+    let simTemp: number = 15;
 
     let showMotion = true;
     let showEnvironment = true;
@@ -398,6 +399,7 @@
             vx0: Math.sqrt(chartData![idx].vx ** 2 + chartData![idx].vy ** 2),
             vz0: Number(chartData![idx].vz),
             x0: Number(chartData![idx].alt),
+            temp: simTemp,
         })) as SimData;
         res.time = res.time.map((x) => Math.round(x * 1000) / 1000); // Fix floating point errors
         setChartData("Simulated Altitude (m)", res.time, res.alt);
@@ -842,7 +844,7 @@
                         </div>
                         <div class="row mb-3 mt-3">
                             <div class="col">
-                                <label for="flightTime" class="form-label"
+                                <label for="apogee" class="form-label"
                                     >Apogee</label
                                 >
                                 <input
@@ -852,6 +854,7 @@
                                         ...chartData.map((x) => x.alt),
                                     ).toFixed(2)}m`}
                                     disabled
+                                    id="apogee"
                                 />
                             </div>
                             <div class="col">
@@ -866,10 +869,11 @@
                                         1000
                                     ).toFixed(2)}s`}
                                     disabled
+                                    id="flightTime"
                                 />
                             </div>
                             <div class="col">
-                                <label for="flightTime" class="form-label"
+                                <label for="peakVel" class="form-label"
                                     >Peak Velocity</label
                                 >
                                 <input
@@ -879,10 +883,11 @@
                                         ...chartData.map((x) => x.vz),
                                     ).toFixed(2)}m/s`}
                                     disabled
+                                    id="peakVel"
                                 />
                             </div>
                             <div class="col">
-                                <label for="flightTime" class="form-label"
+                                <label for="peakAccel" class="form-label"
                                     >Peak Motor Acceleration</label
                                 >
                                 <input
@@ -894,6 +899,7 @@
                                         ),
                                     ).toFixed(2)}m/s^2`}
                                     disabled
+                                    id="peakAccel"
                                 />
                             </div>
                         </div>
@@ -939,23 +945,64 @@
                         </div>
 
                         {#if showSim}
-                            <label for="startTime" class="form-label"
-                                >Simulation Start Time ({simStartTime.toFixed(
-                                    1,
-                                )}s)</label
-                            >
-                            <input
-                                type="range"
-                                class="form-range"
-                                id="startTime"
-                                bind:value={simStartTime}
-                                min={chartData[0].time / 1000}
-                                max={chartData[chartData.length - 1].time /
-                                    1000}
-                                step={1 / 1000}
-                                on:change={calcSim}
-                                disabled={loadingSim}
-                            />
+                            <h3 class="mt-3">Simulation Options</h3>
+                            <div class="row mb-1">
+                                <label for="startTime" class="form-label"
+                                    >Simulation Start Time ({simStartTime.toFixed(
+                                        1,
+                                    )}s)</label
+                                >
+                                <input
+                                    type="range"
+                                    class="form-range"
+                                    id="startTime"
+                                    bind:value={simStartTime}
+                                    min={chartData[0].time / 1000}
+                                    max={chartData[chartData.length - 1].time /
+                                        1000}
+                                    step={1 / 1000}
+                                    on:change={calcSim}
+                                    disabled={loadingSim}
+                                    style="padding: calc(var(--bs-gutter-x) * .5);"
+                                />
+                            </div>
+                            {#if config.control}
+                                <div class="row mb-3">
+                                    <div class="col">
+                                        <label
+                                            for="temperature"
+                                            class="form-label"
+                                            >Temperature (C)</label
+                                        >
+                                        <input
+                                            type="number"
+                                            class="form-control"
+                                            id="temperature"
+                                            bind:value={simTemp}
+                                            on:change={calcSim}
+                                            disabled={loadingSim}
+                                        />
+                                    </div>
+                                    <div class="col">
+                                        <label
+                                            for="simTargetAlt"
+                                            class="form-label"
+                                            >Temperature Compensated Target
+                                            Altitude (m)</label
+                                        >
+                                        <input
+                                            type="number"
+                                            class="form-control"
+                                            id="simTargetAlt"
+                                            disabled
+                                            value={(
+                                                ((simTemp + 273.15) / 288.145) *
+                                                config.param
+                                            ).toFixed(2)}
+                                        />
+                                    </div>
+                                </div>
+                            {/if}
                         {/if}
                         <canvas id="chart"></canvas>
                     {:else}

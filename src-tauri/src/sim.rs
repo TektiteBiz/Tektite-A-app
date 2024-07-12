@@ -117,13 +117,21 @@ const DELAY: f32 = 0.1; // Seconds
 const CANARDVEL: f32 = 667.0; // deg/s
 
 #[tauri::command(async)]
-pub fn calc_sim(config: SimConfig, times: Vec<f32>, vx0: f32, vz0: f32, x0: f32) -> SimResult {
+pub fn calc_sim(
+    config: SimConfig,
+    times: Vec<f32>,
+    vx0: f32,
+    vz0: f32,
+    x0: f32,
+    temp: f32,
+) -> SimResult {
     let mut result = SimResult::default();
     let mut vx = vx0;
     let mut vz = vz0;
     let mut x = x0;
     let mut angle: f32 = 0.0;
     let mut realang: f32 = 0.0;
+    let target = (temp + 273.15) / 288.145 * config.param;
     for i in 1..times.len() {
         let (az, _) = calc_a(&config, times[i], vz, vx, realang);
         (x, vz, vx) = solve_iter(
@@ -158,7 +166,7 @@ pub fn calc_sim(config: SimConfig, times: Vec<f32>, vx0: f32, vz0: f32, x0: f32)
 
         if times[i] > config.startTime {
             if config.control {
-                angle += config.P * (get_apogee(&config, times[i], vd, xd, realang) - config.param);
+                angle += config.P * (get_apogee(&config, times[i], vd, xd, realang) - target);
                 if angle < 0.0 {
                     angle = 0.0;
                 } else if angle > 90.0 {
