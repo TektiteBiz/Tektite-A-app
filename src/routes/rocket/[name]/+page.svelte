@@ -396,6 +396,7 @@
         let res = (await invoke("calc_sim", {
             config,
             times: chartData!.map((x) => Number(x.time / 1000)).slice(idx),
+            samples: chartData!.map((x) => Math.floor(x.samples)).slice(idx),
             vx0: Math.sqrt(chartData![idx].vx ** 2 + chartData![idx].vy ** 2),
             vz0: Number(chartData![idx].vz),
             x0: Number(chartData![idx].alt),

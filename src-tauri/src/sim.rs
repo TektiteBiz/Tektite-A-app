@@ -114,12 +114,33 @@ pub fn get_apogee(config: &SimConfig, t0: f32, vz0: f32, x0: f32, angle: f32) ->
 }
 
 const DELAY: f32 = 0.1; // Seconds
-const CANARDVEL: f32 = 667.0; // deg/s
+const CANARDVEL: f32 = 800.0; // deg/s
+
+fn get_realang(dt: f32, angle: f32, mut realang: f32) -> f32 {
+    // Update realang
+    if (angle - realang).abs() > CANARDVEL * dt {
+        if angle > realang {
+            realang += CANARDVEL * dt;
+            if realang > angle {
+                realang = angle;
+            }
+        } else if angle < realang {
+            realang -= CANARDVEL * dt;
+            if realang < angle {
+                realang = angle;
+            }
+        }
+    } else {
+        realang = angle;
+    }
+    realang
+}
 
 #[tauri::command(async)]
 pub fn calc_sim(
     config: SimConfig,
     times: Vec<f32>,
+    samples: Vec<i32>,
     vx0: f32,
     vz0: f32,
     x0: f32,
@@ -131,6 +152,8 @@ pub fn calc_sim(
     let mut x = x0;
     let mut angle: f32 = 0.0;
     let mut realang: f32 = 0.0;
+    let mut angd = 0.0; // Updated at 50hz to account for servo PWM delay
+    let mut angd_t = 0.0;
     let target = (temp + 273.15) / 288.145 * config.param;
     for i in 1..times.len() {
         let (az, _) = calc_a(&config, times[i], vz, vx, realang);
@@ -146,7 +169,7 @@ pub fn calc_sim(
         result.time.push(times[i]);
         result.alt.push(x);
         result.vz.push(vz);
-        result.vx.push(vx);
+        //result.vx.push(vx);
         result.az.push(az);
         result.angle.push(angle);
         if vz < 0.0 {
@@ -164,36 +187,31 @@ pub fn calc_sim(
             }
         }
 
+        result
+            .vx
+            .push(get_apogee(&config, times[i], vd, xd, realang));
+
         if times[i] > config.startTime {
             if config.control {
-                angle += config.P * (get_apogee(&config, times[i], vd, xd, realang) - target);
-                if angle < 0.0 {
-                    angle = 0.0;
-                } else if angle > 90.0 {
-                    angle = 90.0;
+                for _ in 0..samples[i] {
+                    angle += config.P * (get_apogee(&config, times[i], vd, xd, realang) - target);
+                    if angle < 0.0 {
+                        angle = 0.0;
+                    } else if angle > 90.0 {
+                        angle = 90.0;
+                    }
                 }
+                if (times[i] - angd_t) > 0.02 {
+                    angd_t = times[i];
+                    angd = angle;
+                }
+                realang = get_realang(times[i] - times[i - 1], angd, realang);
             } else {
                 angle = config.param;
-            }
-
-            // Update realang
-            if (angle - realang).abs() > CANARDVEL * (times[i] - times[i - 1]) {
-                if angle > realang {
-                    realang += CANARDVEL * (times[i] - times[i - 1]);
-                    if realang > angle {
-                        realang = angle;
-                    }
-                } else if angle < realang {
-                    realang -= CANARDVEL * (times[i] - times[i - 1]);
-                    if realang < angle {
-                        realang = angle;
-                    }
-                }
-            } else {
-                realang = angle;
+                realang = get_realang(times[i] - times[i - 1], angle, realang);
             }
         } else {
-            angle = 3.0;
+            angle = 0.0;
         }
     }
     result
