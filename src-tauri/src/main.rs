@@ -3,7 +3,7 @@
 
 mod connection;
 use connection::{
-    config_write, connect, disconnect, get_status, is_connected, read_data, servo_test,
+    config_write, connect, disconnect, get_status, is_connected, play_flight, read_data, servo_test,
 };
 
 mod sim;
@@ -25,7 +25,8 @@ fn main() {
             calc_sim,
             servo_test,
             read_flight_data,
-            show_item_in_folder
+            show_item_in_folder,
+            play_flight
         ])
         .setup(|app| {
             #[cfg(target_os = "linux")]

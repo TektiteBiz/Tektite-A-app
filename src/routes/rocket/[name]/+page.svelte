@@ -456,6 +456,32 @@
     function updateServoVal() {
         servoval = (status.config as any)[servovar];
     }
+
+    let playingFlight = false;
+    async function playFlight() {
+        let data = chartData!
+            .filter((x) => x.state == 3 && x.vz > 0)
+            .map((x) => {
+                return {
+                    delay: Number(x.time),
+                    servo: Number(x.servo),
+                };
+            });
+
+        // Make the delays all be relative to the previous delay
+        for (let i = data.length - 1; i > 0; i--) {
+            data[i].delay -= data[i - 1].delay;
+        }
+        data[0].delay = 0;
+        data.push({
+            delay: -1,
+            servo: 0,
+        });
+
+        playingFlight = true;
+        await invoke("play_flight", { data });
+        playingFlight = false;
+    }
 </script>
 
 <a href="/" class="text-decoration-none"
@@ -865,12 +891,24 @@
                     {#if chartData}
                         <div class="d-flex">
                             <h2>{chartDataName}</h2>
-                            <button
-                                class="btn btn-danger ms-auto d-flex flex-column justify-content-center"
-                                on:click={() => {
-                                    chartData = undefined;
-                                }}>Close</button
+                            <div
+                                class="btn-group ms-auto d-flex flex-row justify-content-center"
                             >
+                                {#if connected}
+                                    <button
+                                        class="btn btn-primary"
+                                        disabled={playingFlight}
+                                        on:click={playFlight}
+                                        type="button">Replay Flight</button
+                                    >
+                                {/if}
+                                <button
+                                    class="btn btn-danger"
+                                    on:click={() => {
+                                        chartData = undefined;
+                                    }}>Close</button
+                                >
+                            </div>
                         </div>
                         <div class="row mb-3 mt-3">
                             <div class="col">

@@ -52,6 +52,7 @@ pub enum CommandType {
     Status,
     ConfigWrite,
     DataRead,
+    FlightReplay,
 }
 
 #[repr(C, packed)]
@@ -250,5 +251,54 @@ pub fn read_data(port: tauri::State<SerialPortState>, app_handle: tauri::AppHand
         val.clear(serialport::ClearBuffer::Input)
             .expect("Failed to clear Serial port");
         val.write_all(&[1]).expect("Failed to write to Serial port");
+    }
+}
+
+#[repr(C, packed)]
+#[derive(Serialize, Deserialize, Clone, Copy)]
+pub struct ReplayData {
+    pub delay: i32,
+    pub servo: f32,
+}
+
+#[tauri::command(async)]
+pub fn play_flight(data: Vec<ReplayData>, port: tauri::State<SerialPortState>) {
+    let mut binding = port.0.lock().unwrap();
+    let mut val = binding.as_mut().unwrap();
+    val.clear(serialport::ClearBuffer::Input)
+        .expect("Failed to clear Serial port");
+    send_command(
+        &mut val,
+        Command {
+            command_type: CommandType::FlightReplay as u8,
+            config: Config::default(),
+        },
+    );
+
+    for chunk in data.chunks(8) {
+        // Wait for ack
+        val.read_exact(&mut [0; 1])
+            .expect("Failed to read from Serial port");
+
+        // Send data
+        let mut buf: [ReplayData; 8] = [ReplayData {
+            delay: 0,
+            servo: 0.0,
+        }; 8];
+        for i in 0..8 {
+            if i < chunk.len() {
+                buf[i] = chunk[i];
+            } else {
+                buf[i].delay = -1;
+            }
+        }
+        let data = unsafe {
+            slice::from_raw_parts(
+                &buf as *const _ as *const u8,
+                mem::size_of::<ReplayData>() * 8,
+            )
+        };
+        val.write_all(data).expect("Failed to write to Serial port");
+        val.flush().expect("Failed to flush Serial port");
     }
 }

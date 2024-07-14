@@ -174,7 +174,6 @@ pub fn calc_sim(
         result.alt.push(x);
         result.vz.push(vz);
         result.vx.push(vx);
-        println!("{} {}", ax, vx);
         result.az.push(az);
         result.angle.push(angle);
         if vz < 0.0 && times[i] > get_thrust_time(&config) {
