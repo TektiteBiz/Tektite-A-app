@@ -1,15 +1,19 @@
 use serde::{Deserialize, Serialize};
 use serialport::{available_ports, SerialPort, SerialPortType};
 use std::{io::Read, mem, slice, sync::Mutex, thread::sleep, time::Duration};
-use tauri::Manager;
+use tauri::api::dialog;
+use tauri::{Manager, Window};
 
 pub struct SerialPortState(pub Mutex<Option<Box<dyn SerialPort>>>);
 
 #[tauri::command]
 pub fn connect(port: tauri::State<SerialPortState>) -> bool {
-    let res = available_ports().expect("Failed to fetch Serial ports");
+    let res = available_ports();
+    if let Err(_) = res {
+        return false;
+    }
     let mut name: Option<String> = None;
-    for port in res {
+    for port in res.unwrap() {
         if let SerialPortType::UsbPort(info) = port.port_type {
             if let Some(manu) = info.manufacturer {
                 if manu == "STMicroelectronics" {
@@ -23,15 +27,18 @@ pub fn connect(port: tauri::State<SerialPortState>) -> bool {
         return false;
     }
     let mut v = serialport::new(name.unwrap(), 9600)
-        .timeout(Duration::from_secs(30))
+        .timeout(Duration::from_secs(5))
         .flow_control(serialport::FlowControl::Software)
         .parity(serialport::Parity::None)
         .stop_bits(serialport::StopBits::One)
-        .open()
-        .expect("Failed to open Serial port");
-    v.write_data_terminal_ready(true)
-        .expect("Failed to set DTR");
-    *port.0.lock().unwrap() = Some(v);
+        .open();
+    if let Err(_) = &v {
+        return false;
+    }
+    if let Err(_) = v.as_mut().unwrap().write_data_terminal_ready(true) {
+        return false;
+    }
+    *port.0.lock().unwrap() = Some(v.unwrap());
     true
 }
 
@@ -80,18 +87,28 @@ pub struct Command {
 }
 
 #[repr(C, packed)]
-#[derive(Clone, Copy, Serialize)]
+#[derive(Clone, Copy, Serialize, Default)]
 pub struct StatusData {
     has_data: bool,
     config: Config,
 }
 
+fn handle_err(port: Option<Box<dyn SerialPort>>, app_handle: tauri::AppHandle) {
+    dialog::message(None::<&Window>, "Tektite-A", "Disconnected from device");
+    app_handle
+        .emit_all("disconnect", "")
+        .expect("Failed to communicate with frontend");
+    mem::drop(port);
+}
+
 #[tauri::command]
-pub fn get_status(port: tauri::State<SerialPortState>) -> StatusData {
+pub fn get_status(port: tauri::State<SerialPortState>, app_handle: tauri::AppHandle) -> StatusData {
     let mut binding = port.0.lock().unwrap();
     let mut val = binding.as_mut().unwrap();
-    val.clear(serialport::ClearBuffer::Input)
-        .expect("Failed to clear Serial port");
+    if let Err(_) = val.clear(serialport::ClearBuffer::Input) {
+        handle_err(binding.take(), app_handle);
+        return StatusData::default();
+    }
     send_command(
         &mut val,
         Command {
@@ -102,8 +119,10 @@ pub fn get_status(port: tauri::State<SerialPortState>) -> StatusData {
 
     let mut status: StatusData = unsafe { mem::zeroed() };
     let mut buff: [u8; mem::size_of::<StatusData>()] = [0; mem::size_of::<StatusData>()];
-    val.read_exact(&mut buff)
-        .expect("Failed to read from Serial port");
+    if let Err(_) = val.read_exact(&mut buff) {
+        handle_err(binding.take(), app_handle);
+        return StatusData::default();
+    }
 
     unsafe {
         let config_slice = slice::from_raw_parts_mut(
@@ -117,23 +136,34 @@ pub fn get_status(port: tauri::State<SerialPortState>) -> StatusData {
 }
 
 #[tauri::command]
-pub fn config_write(port: tauri::State<SerialPortState>, config: Config) {
+pub fn config_write(
+    port: tauri::State<SerialPortState>,
+    config: Config,
+    app_handle: tauri::AppHandle,
+) {
     let mut binding = port.0.lock().unwrap();
     let mut val = binding.as_mut().unwrap();
-    send_command(
+    if !send_command(
         &mut val,
         Command {
             command_type: CommandType::ConfigWrite as u8,
             config,
         },
-    );
+    ) {
+        handle_err(binding.take(), app_handle);
+    }
 }
 
 #[tauri::command]
-pub fn servo_test(port: tauri::State<SerialPortState>, config: Config, max: bool) {
+pub fn servo_test(
+    port: tauri::State<SerialPortState>,
+    config: Config,
+    max: bool,
+    app_handle: tauri::AppHandle,
+) {
     let mut binding = port.0.lock().unwrap();
     let mut val = binding.as_mut().unwrap();
-    send_command(
+    if !send_command(
         &mut val,
         Command {
             command_type: if max {
@@ -143,19 +173,23 @@ pub fn servo_test(port: tauri::State<SerialPortState>, config: Config, max: bool
             } as u8,
             config,
         },
-    );
+    ) {
+        handle_err(binding.take(), app_handle);
+    }
 }
 
-fn send_command(port: &mut Box<dyn serialport::SerialPort>, command: Command) {
+fn send_command(port: &mut Box<dyn serialport::SerialPort>, command: Command) -> bool {
     let data = unsafe {
         slice::from_raw_parts(
             &command as *const Command as *const u8,
             mem::size_of::<Command>(),
         )
     };
-    port.write_all(data)
-        .expect("Failed to write to Serial port");
+    if let Err(_) = port.write_all(data) {
+        return false;
+    }
     port.flush().expect("Failed to flush Serial port");
+    true
 }
 
 #[repr(C, packed)]
@@ -204,15 +238,20 @@ pub fn read_data(port: tauri::State<SerialPortState>, app_handle: tauri::AppHand
 
     // Prepare writer
     let mut writer = csv::Writer::from_path(path).expect("Failed to open CSV");
-    val.clear(serialport::ClearBuffer::Input)
-        .expect("Failed to clear Serial port");
-    send_command(
+    if let Err(_) = val.clear(serialport::ClearBuffer::Input) {
+        handle_err(binding.take(), app_handle);
+        return;
+    }
+    if !send_command(
         &mut val,
         Command {
             command_type: CommandType::DataRead as u8,
             config: Config::default(),
         },
-    );
+    ) {
+        handle_err(binding.take(), app_handle);
+        return;
+    }
 
     // Read
     let mut zero = 0;
@@ -262,18 +301,27 @@ pub struct ReplayData {
 }
 
 #[tauri::command(async)]
-pub fn play_flight(data: Vec<ReplayData>, port: tauri::State<SerialPortState>) {
+pub fn play_flight(
+    data: Vec<ReplayData>,
+    port: tauri::State<SerialPortState>,
+    app_handle: tauri::AppHandle,
+) {
     let mut binding = port.0.lock().unwrap();
     let mut val = binding.as_mut().unwrap();
-    val.clear(serialport::ClearBuffer::Input)
-        .expect("Failed to clear Serial port");
-    send_command(
+    if let Err(_) = val.clear(serialport::ClearBuffer::Input) {
+        handle_err(binding.take(), app_handle);
+        return;
+    }
+    if !send_command(
         &mut val,
         Command {
             command_type: CommandType::FlightReplay as u8,
             config: Config::default(),
         },
-    );
+    ) {
+        handle_err(binding.take(), app_handle);
+        return;
+    }
 
     for chunk in data.chunks(8) {
         // Wait for ack

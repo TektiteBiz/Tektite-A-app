@@ -160,6 +160,9 @@
         listen("recvdata", (e) => {
             dataProgress = e.payload as number;
         });
+        listen("disconnect", (e) => {
+            connected = false;
+        });
     });
 
     async function deleteFlightData(name: string) {
