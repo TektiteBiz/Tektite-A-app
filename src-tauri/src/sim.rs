@@ -1,11 +1,11 @@
 use serde::{Deserialize, Serialize};
-use tauri::utils::config;
 
 #[derive(Deserialize)]
 pub struct SimConfig {
     rho: f32,
     A: f32, // reference area
     mass: f32,
+    propellantMass: f32,
     baseCd: f32,
     canardCd: f32,
     thrustCurveTime: Vec<f32>,
@@ -25,6 +25,7 @@ pub struct SimResult {
     vx: Vec<f32>,
     az: Vec<f32>,
     angle: Vec<f32>,
+    predictedAlt: Vec<f32>,
 }
 
 fn get_thrust(config: &SimConfig, t: f32) -> f32 {
@@ -44,16 +45,19 @@ fn get_thrust(config: &SimConfig, t: f32) -> f32 {
     0.0
 }
 
+fn get_thrust_time(config: &SimConfig) -> f32 {
+    *config.thrustCurveTime.last().unwrap()
+}
+
 const G: f32 = 9.81;
 
 fn calc_a(config: &SimConfig, ti: f32, vzi: f32, vxi: f32, angle: f32) -> (f32, f32) {
+    let mass = config.mass - (config.propellantMass / 1000.0) * (ti / get_thrust_time(config));
     let cd = config.baseCd + config.canardCd * (angle / 90.0);
     let thrust = get_thrust(config, ti);
     let ang = (vxi / vzi).atan();
-    let az = -0.5 * config.rho * config.A * cd * vzi * vzi / config.mass - G
-        + thrust / config.mass * ang.cos();
-    let ax = -0.5 * config.rho * config.A * cd * vxi * vxi / config.mass
-        + thrust / config.mass * ang.sin();
+    let az = -0.5 * config.rho * config.A * cd * vzi * vzi / mass - G + thrust / mass * ang.cos();
+    let ax = -0.5 * config.rho * config.A * cd * vxi * vxi / mass * ang.sin();
     (az, ax)
 }
 
@@ -154,9 +158,9 @@ pub fn calc_sim(
     let mut realang: f32 = 0.0;
     let mut angd = 0.0; // Updated at 50hz to account for servo PWM delay
     let mut angd_t = 0.0;
-    let target = (temp + 273.15) / 288.145 * config.param;
+    let target = (temp + 273.15) / 286.65 * config.param;
     for i in 1..times.len() {
-        let (az, _) = calc_a(&config, times[i], vz, vx, realang);
+        let (az, ax) = calc_a(&config, times[i], vz, vx, realang);
         (x, vz, vx) = solve_iter(
             &config,
             times[i],
@@ -169,10 +173,11 @@ pub fn calc_sim(
         result.time.push(times[i]);
         result.alt.push(x);
         result.vz.push(vz);
-        //result.vx.push(vx);
+        result.vx.push(vx);
+        println!("{} {}", ax, vx);
         result.az.push(az);
         result.angle.push(angle);
-        if vz < 0.0 {
+        if vz < 0.0 && times[i] > get_thrust_time(&config) {
             break;
         }
 
@@ -187,14 +192,14 @@ pub fn calc_sim(
             }
         }
 
-        result
-            .vx
-            .push(get_apogee(&config, times[i], vd, xd, realang));
-
         if times[i] > config.startTime {
             if config.control {
-                for _ in 0..samples[i] {
-                    angle += config.P * (get_apogee(&config, times[i], vd, xd, realang) - target);
+                result
+                    .predictedAlt
+                    .push(get_apogee(&config, times[i], vd, xd, realang));
+                for j in 0..samples[i] {
+                    let pre = get_apogee(&config, times[i], vd, xd, realang);
+                    angle += config.P * (pre - target);
                     if angle < 0.0 {
                         angle = 0.0;
                     } else if angle > 90.0 {
@@ -209,9 +214,13 @@ pub fn calc_sim(
             } else {
                 angle = config.param;
                 realang = get_realang(times[i] - times[i - 1], angle, realang);
+                result
+                    .predictedAlt
+                    .push(get_apogee(&config, times[i], vd, xd, realang));
             }
         } else {
             angle = 0.0;
+            result.predictedAlt.push(0.0);
         }
     }
     result

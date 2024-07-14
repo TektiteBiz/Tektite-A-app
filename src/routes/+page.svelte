@@ -32,6 +32,7 @@
             rho: 1.229,
             A: 0.003425,
             mass: 0.5,
+            propellantMass: 30,
             baseCd: 0.5,
             canardCd: 0.5,
             thrustCurveTime: [0, 0.1, 0.9, 0],

@@ -41,7 +41,7 @@
 
     function calculate() {
         status.config.alpha = config.A * config.rho;
-        status.config.mass = config.mass;
+        status.config.mass = config.mass - config.propellantMass / 1000;
         status.config.control = config.control;
         status.config.param = config.param;
         status.config.P = config.P;
@@ -287,6 +287,12 @@
                     fill: true,
                     spanGaps: true,
                 },
+                {
+                    label: "Simulated Predicted Altitude (m)",
+                    data: [],
+                    fill: true,
+                    spanGaps: true,
+                },
             ],
         };
 
@@ -374,7 +380,8 @@
                     x.label != "Simulated Vertical Velocity (m/s)" &&
                     x.label != "Simulated Horizontal Velocity (m/s)" &&
                     x.label != "Simulated Vertical Acceleration (m/s^2)" &&
-                    x.label != "Simulated Canard Angle (degrees)",
+                    x.label != "Simulated Canard Angle (degrees)" &&
+                    x.label != "Simulated Predicted Altitude (m)",
             );
         }
 
@@ -412,6 +419,11 @@
             res.az,
         );
         setChartData("Simulated Canard Angle (degrees)", res.time, res.angle);
+        setChartData(
+            "Simulated Predicted Altitude (m)",
+            res.time,
+            res.predictedAlt,
+        );
         updateChartData();
         loadingSim = false;
     }
@@ -509,6 +521,8 @@
                                 bind:value={config.A}
                             />
                         </div>
+                    </div>
+                    <div class="row mb-3">
                         <div class="col">
                             <label for="mass" class="form-label"
                                 >Mass (kg)</label
@@ -519,6 +533,18 @@
                                 class="form-control"
                                 on:change={saveConfig}
                                 bind:value={config.mass}
+                            />
+                        </div>
+                        <div class="col">
+                            <label for="propellantMass" class="form-label"
+                                >Propellant Mass (g)</label
+                            >
+                            <input
+                                id="propellantMass"
+                                type="number"
+                                class="form-control"
+                                on:change={saveConfig}
+                                bind:value={config.propellantMass}
                             />
                         </div>
                     </div>
@@ -794,27 +820,30 @@
                             </form>
                         </div>
                     </div>
-                    <div class="input-group">
-                        <input
-                            type="text"
-                            class="form-control"
-                            placeholder="Flight data name"
-                            bind:value={flightDataName}
-                        />
-                        <button
-                            class="btn btn-primary text-center"
-                            disabled={!status.has_data || loadingData}
-                            on:click={readFlightData}
-                        >
-                            {#if loadingData}
-                                Downloading Flight Data... ({(
-                                    dataProgress / 1000
-                                ).toFixed(1)}s)
-                            {:else}
-                                Download Flight Data
-                            {/if}
-                        </button>
-                    </div>
+                    <form>
+                        <div class="input-group">
+                            <input
+                                type="text"
+                                class="form-control"
+                                placeholder="Flight data name"
+                                bind:value={flightDataName}
+                            />
+                            <button
+                                class="btn btn-primary text-center"
+                                type="submit"
+                                disabled={!status.has_data || loadingData}
+                                on:click|preventDefault={readFlightData}
+                            >
+                                {#if loadingData}
+                                    Downloading Flight Data... ({(
+                                        dataProgress / 1000
+                                    ).toFixed(1)}s)
+                                {:else}
+                                    Download Flight Data
+                                {/if}
+                            </button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
@@ -997,7 +1026,7 @@
                                             id="simTargetAlt"
                                             disabled
                                             value={(
-                                                ((simTemp + 273.15) / 288.145) *
+                                                ((simTemp + 273.15) / 286.65) *
                                                 config.param
                                             ).toFixed(2)}
                                         />
