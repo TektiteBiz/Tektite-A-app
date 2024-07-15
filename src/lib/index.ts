@@ -1,3 +1,5 @@
+import { writable } from "svelte/store";
+
 export type Config = {
     rho: number, // kg/m^3
     A: number, // m^2
@@ -86,3 +88,5 @@ export function invalidUrl(name: string): boolean {
         name.includes(".") ||
         name.includes(" ") || name.length == 0;
 }
+
+export let rocketName = writable("");

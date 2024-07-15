@@ -1,0 +1,1 @@
+TAURI_PRIVATE_KEY=(cat ~/.tauri/tektite-a.key) pnpm tauri build

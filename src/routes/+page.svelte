@@ -9,7 +9,8 @@
     } from "@tauri-apps/api/fs";
     import { confirm } from "@tauri-apps/api/dialog";
     import { onMount } from "svelte";
-    import { invalidUrl, type Config } from "$lib";
+    import { invalidUrl, rocketName, type Config } from "$lib";
+    import { goto } from "$app/navigation";
 
     let rockets: FileEntry[] = [];
     async function refreshRockets() {
@@ -23,7 +24,6 @@
     async function createRocket() {
         if (invalidUrl(name)) {
             alert("Invalid rocket name (must be a valid URL)");
-            console.log("OHIO");
             return;
         }
         const dataDir = await appDataDir();
@@ -58,6 +58,11 @@
         await removeDir(await join(dataDir, name!), { recursive: true });
         await refreshRockets();
     }
+
+    function navigate(path: string | undefined) {
+        rocketName.set(path!);
+        goto("/rocket");
+    }
 </script>
 
 <h1>My Rockets</h1>
@@ -81,8 +86,10 @@
 <div class="list-group">
     {#each rockets as r}
         {#if r.children}
-            <a
-                href="/rocket/{r.name}"
+            <button
+                on:click={() => {
+                    navigate(r.name);
+                }}
                 class="list-group-item list-group-item-action fs-5"
             >
                 {r.name}
@@ -95,7 +102,7 @@
                     }}
                     type="button"><i class="bi bi-trash"></i></button
                 >
-            </a>
+            </button>
         {/if}
     {/each}
 </div>

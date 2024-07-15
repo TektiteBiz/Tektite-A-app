@@ -16,6 +16,7 @@
         type Config,
         type Status,
         type SimData,
+        rocketName,
     } from "$lib";
     import { listen } from "@tauri-apps/api/event";
     import Chart, { type ChartData } from "chart.js/auto";
@@ -56,18 +57,18 @@
     async function loadConfig() {
         const dataDir = await appDataDir();
         let val = await readTextFile(
-            await join(dataDir, $page.params.name, "conf.json"),
+            await join(dataDir, $rocketName, "conf.json"),
         );
         config = JSON.parse(val);
 
         flightDataList = (await invoke("read_flight_data", {
-            path: await join(dataDir, $page.params.name),
+            path: await join(dataDir, $rocketName),
         })) as string[];
     }
 
     async function saveConfig() {
         await writeTextFile(
-            await join(await appDataDir(), $page.params.name, "conf.json"),
+            await join(await appDataDir(), $rocketName, "conf.json"),
             JSON.stringify(config),
         );
         if (chartData) {
@@ -140,7 +141,7 @@
         }
         let path = await join(
             await appDataDir(),
-            $page.params.name,
+            $rocketName,
             flightDataName + ".csv",
         );
         dataProgress = 0;
@@ -172,7 +173,7 @@
             return;
         }
         await removeFile(
-            await join(await appDataDir(), $page.params.name, name + ".csv"),
+            await join(await appDataDir(), $rocketName, name + ".csv"),
         );
         await loadConfig();
     }
@@ -183,11 +184,7 @@
     let data: ChartData;
     async function openFlightData(name: string) {
         chartDataName = name;
-        let path = await join(
-            await appDataDir(),
-            $page.params.name,
-            name + ".csv",
-        );
+        let path = await join(await appDataDir(), $rocketName, name + ".csv");
         let val = await readTextFile(path);
         chartData = Papa.parse(val, { header: true }).data as Record<
             string,
@@ -492,7 +489,7 @@
 >
 
 <div class="d-flex mt-3">
-    <h1 class="justify-content-start">{$page.params.name}</h1>
+    <h1 class="justify-content-start">{$rocketName}</h1>
     <div class="ms-auto d-flex flex-column justify-content-center">
         {#if connected}
             <button
@@ -1100,7 +1097,7 @@
                                                     {
                                                         path: await join(
                                                             await appDataDir(),
-                                                            $page.params.name,
+                                                            $rocketName,
                                                             f + ".csv",
                                                         ),
                                                     },

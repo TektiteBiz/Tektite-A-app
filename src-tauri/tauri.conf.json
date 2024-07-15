@@ -77,7 +77,12 @@
       "csp": null
     },
     "updater": {
-      "active": false
+      "active": true,
+      "endpoints": [
+        "https://github.com/TektiteBiz/Tektite-A-App/releases/latest/download/update.json"
+      ],
+      "dialog": true,
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDlFQUNGOUIwRDQ4N0M0QQpSV1JLZkVnTm04L3FDVWtvakRNeVRMQ2VhR1g0SFF4ZGE5Z05GY2RwZklLeStmTUJZTnhaZWlzUAo=%"
     },
     "windows": [
       {
