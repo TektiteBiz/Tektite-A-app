@@ -482,6 +482,28 @@
         await invoke("play_flight", { data });
         playingFlight = false;
     }
+
+    async function importFlightData() {
+        let file = (await open({
+            filters: [
+                {
+                    name: "Flight Data",
+                    extensions: ["csv"],
+                },
+            ],
+            multiple: false,
+        })) as string;
+        if (!file) {
+            return;
+        }
+        let val = await readTextFile(file);
+        let name = file.split("/").pop()!.split(".")[0];
+        await writeTextFile(
+            await join(await appDataDir(), $rocketName, name + ".csv"),
+            val,
+        );
+        loadConfig();
+    }
 </script>
 
 <a href="/" class="text-decoration-none"
@@ -1074,6 +1096,12 @@
                         {/if}
                         <canvas id="chart"></canvas>
                     {:else}
+                        <button
+                            class="btn btn-primary mb-3"
+                            on:click={importFlightData}
+                            ><i class="bi bi-file-earmark-arrow-down-fill"></i> Import
+                            Flight Data</button
+                        >
                         <div class="list-group">
                             {#each flightDataList as f}
                                 <li class="list-group-item fs-5">
