@@ -40,8 +40,25 @@
         }
     });
 
+    let rho: number = 0;
+    $: config, (rho = calculateRho());
+
+    function calculateRho() {
+        if (!config) {
+            return 0;
+        }
+        let p1 =
+            6.1078 * Math.pow(10, (7.5 * config.temp) / (config.temp + 237.3));
+        let pv = config.humidity * p1;
+        let pd = config.pressure - pv;
+        return (
+            pd / (287.05 * (config.temp + 273.15)) +
+            pv / (461.495 * (config.temp + 273.15))
+        ); //
+    }
+
     function calculate() {
-        status.config.alpha = config.A * config.rho;
+        status.config.alpha = config.A * calculateRho();
         status.config.mass = config.mass - config.propellantMass / 1000;
         status.config.control = config.control;
         status.config.param = config.param;
@@ -349,7 +366,6 @@
 
     let loadingSim = false;
     let simStartTime: number = 0;
-    let simTemp: number = 15;
 
     let showMotion = true;
     let showEnvironment = true;
@@ -407,7 +423,7 @@
             vx0: Math.sqrt(chartData![idx].vx ** 2 + chartData![idx].vy ** 2),
             vz0: Number(chartData![idx].vz),
             x0: Number(chartData![idx].alt),
-            temp: simTemp,
+            temp: config.temp,
         })) as SimData;
         res.time = res.time.map((x) => Math.round(x * 1000) / 1000); // Fix floating point errors
         setChartData("Simulated Altitude (m)", res.time, res.alt);
@@ -544,6 +560,45 @@
             </h2>
             <div id="simConfig" class="accordion-collapse collapse show">
                 <div class="accordion-body">
+                    <h2>Environment</h2>
+                    <div class="row mb-3">
+                        <div class="col">
+                            <label for="temperature" class="form-label"
+                                >Temperature (C)</label
+                            >
+                            <input
+                                id="temperature"
+                                type="number"
+                                class="form-control"
+                                on:change={saveConfig}
+                                bind:value={config.temp}
+                            />
+                        </div>
+                        <div class="col">
+                            <label for="humidity" class="form-label"
+                                >Humidity (%)</label
+                            >
+                            <input
+                                id="humidity"
+                                type="number"
+                                class="form-control"
+                                on:change={saveConfig}
+                                bind:value={config.humidity}
+                            />
+                        </div>
+                        <div class="col">
+                            <label for="pressure" class="form-label"
+                                >Pressure (Pa)</label
+                            >
+                            <input
+                                id="pressure"
+                                type="number"
+                                class="form-control"
+                                on:change={saveConfig}
+                                bind:value={config.pressure}
+                            />
+                        </div>
+                    </div>
                     <div class="row mb-3">
                         <div class="col">
                             <label for="rho" class="form-label"
@@ -553,23 +608,29 @@
                                 id="rho"
                                 type="number"
                                 class="form-control"
-                                on:change={saveConfig}
-                                bind:value={config.rho}
+                                value={rho.toFixed(4)}
+                                disabled
                             />
                         </div>
-                        <div class="col">
-                            <label for="A" class="form-label"
-                                >Reference area (m^2)</label
-                            >
-                            <input
-                                id="A"
-                                type="number"
-                                class="form-control"
-                                on:change={saveConfig}
-                                bind:value={config.A}
-                            />
-                        </div>
+                        {#if config.control}
+                            <div class="col">
+                                <label for="simTargetAlt" class="form-label"
+                                    >Temperature Compensated Target Altitude (m)</label
+                                >
+                                <input
+                                    type="number"
+                                    class="form-control"
+                                    id="simTargetAlt"
+                                    disabled
+                                    value={(
+                                        ((config.temp + 273.15) / 286.65) *
+                                        config.param
+                                    ).toFixed(2)}
+                                />
+                            </div>
+                        {/if}
                     </div>
+                    <h2>Rocket</h2>
                     <div class="row mb-3">
                         <div class="col">
                             <label for="mass" class="form-label"
@@ -593,6 +654,18 @@
                                 class="form-control"
                                 on:change={saveConfig}
                                 bind:value={config.propellantMass}
+                            />
+                        </div>
+                        <div class="col">
+                            <label for="A" class="form-label"
+                                >Reference area (m^2)</label
+                            >
+                            <input
+                                id="A"
+                                type="number"
+                                class="form-control"
+                                on:change={saveConfig}
+                                bind:value={config.A}
                             />
                         </div>
                     </div>
@@ -621,21 +694,26 @@
                                 bind:value={config.canardCd}
                             />
                         </div>
-                        {#if config.control}
-                            <div class="col">
-                                <label for="P" class="form-label"
-                                    >Controller Gain (Kp)</label
-                                >
-                                <input
-                                    id="P"
-                                    type="number"
-                                    class="form-control"
-                                    on:change={saveConfig}
-                                    bind:value={config.P}
-                                />
-                            </div>
-                        {/if}
                     </div>
+                    <div class="row mb-3">
+                        <label for="thrustCurve" class="form-label"
+                            >Thrust Curve</label
+                        >
+                        <div class="col input-group" id="thrustCurve">
+                            <input
+                                disabled
+                                class="form-control"
+                                value={`${config.thrustCurveName} (Burn Time: ${config.thrustCurveTime[config.thrustCurveTime.length - 1]}s)`}
+                            />
+                            <button
+                                class="btn btn-primary"
+                                type="button"
+                                on:click={changeThrustCurve}
+                                >Select Thrust Curve</button
+                            >
+                        </div>
+                    </div>
+                    <h2>Control System</h2>
                     <div class="row mb-3">
                         <div class="col">
                             <label for="controlSim" class="form-label"
@@ -679,24 +757,20 @@
                                 bind:value={config.startTime}
                             />
                         </div>
-                    </div>
-                    <div class="row mb-3">
-                        <label for="thrustCurve" class="form-label"
-                            >Thrust Curve</label
-                        >
-                        <div class="col input-group" id="thrustCurve">
-                            <input
-                                disabled
-                                class="form-control"
-                                value={`${config.thrustCurveName} (Burn Time: ${config.thrustCurveTime[config.thrustCurveTime.length - 1]}s)`}
-                            />
-                            <button
-                                class="btn btn-primary"
-                                type="button"
-                                on:click={changeThrustCurve}
-                                >Select Thrust Curve</button
-                            >
-                        </div>
+                        {#if config.control}
+                            <div class="col">
+                                <label for="P" class="form-label"
+                                    >Controller Gain (Kp)</label
+                                >
+                                <input
+                                    id="P"
+                                    type="number"
+                                    class="form-control"
+                                    on:change={saveConfig}
+                                    bind:value={config.P}
+                                />
+                            </div>
+                        {/if}
                     </div>
                 </div>
             </div>
@@ -1056,43 +1130,6 @@
                                     style="padding: calc(var(--bs-gutter-x) * .5);"
                                 />
                             </div>
-                            {#if config.control}
-                                <div class="row mb-3">
-                                    <div class="col">
-                                        <label
-                                            for="temperature"
-                                            class="form-label"
-                                            >Temperature (C)</label
-                                        >
-                                        <input
-                                            type="number"
-                                            class="form-control"
-                                            id="temperature"
-                                            bind:value={simTemp}
-                                            on:change={calcSim}
-                                            disabled={loadingSim}
-                                        />
-                                    </div>
-                                    <div class="col">
-                                        <label
-                                            for="simTargetAlt"
-                                            class="form-label"
-                                            >Temperature Compensated Target
-                                            Altitude (m)</label
-                                        >
-                                        <input
-                                            type="number"
-                                            class="form-control"
-                                            id="simTargetAlt"
-                                            disabled
-                                            value={(
-                                                ((simTemp + 273.15) / 286.65) *
-                                                config.param
-                                            ).toFixed(2)}
-                                        />
-                                    </div>
-                                </div>
-                            {/if}
                         {/if}
                         <canvas id="chart"></canvas>
                     {:else}

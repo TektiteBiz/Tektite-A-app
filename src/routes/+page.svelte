@@ -29,7 +29,9 @@
         const dataDir = await appDataDir();
         await createDir(await join(dataDir, name), { recursive: true });
         let conf: Config = {
-            rho: 1.229,
+            temp: 15,
+            pressure: 101325,
+            humidity: 50,
             A: 0.003425,
             mass: 0.5,
             propellantMass: 30,

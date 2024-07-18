@@ -1,7 +1,9 @@
 import { writable } from "svelte/store";
 
 export type Config = {
-    rho: number, // kg/m^3
+    temp: number, // C
+    pressure: number, // Pa
+    humidity: number, // %
     A: number, // m^2
     mass: number,
     propellantMass: number,
