@@ -36,14 +36,14 @@
             mass: 0.5,
             propellantMass: 30,
             baseCd: 0.5,
-            canardCd: 0.5,
+            canardCd: 1.5,
             thrustCurveTime: [0, 0.1, 0.9, 0],
             thrustCurveForce: [0, 100, 100, 0],
             thrustCurveName: "TEKTITE γ-100",
-            control: true,
-            startTime: 1.0,
+            control: false,
+            startTime: 2.0,
             param: 90,
-            P: 50,
+            P: 0.2,
         };
         await writeFile(
             await join(dataDir, name, "conf.json"),

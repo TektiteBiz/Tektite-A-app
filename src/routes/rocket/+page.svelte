@@ -54,7 +54,7 @@
         return (
             pd / (287.05 * (config.temp + 273.15)) +
             pv / (461.495 * (config.temp + 273.15))
-        ); //
+        );
     }
 
     function calculate() {
