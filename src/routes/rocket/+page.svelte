@@ -69,6 +69,7 @@
     async function saveRocketConfig() {
         await invoke("config_write", { config: status.config });
         savedStatus = structuredClone(status);
+        await loadStatus();
     }
 
     async function loadConfig() {
@@ -519,6 +520,12 @@
             val,
         );
         loadConfig();
+    }
+
+    function closeChart() {
+        chartData = undefined;
+        (CrosshairPlugin as any).resetZoom(chart); // Avoid "does not exist" error
+        chart.destroy();
     }
 </script>
 
@@ -1000,9 +1007,7 @@
                                 {/if}
                                 <button
                                     class="btn btn-danger"
-                                    on:click={() => {
-                                        chartData = undefined;
-                                    }}>Close</button
+                                    on:click={closeChart}>Close</button
                                 >
                             </div>
                         </div>
