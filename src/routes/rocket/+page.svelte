@@ -69,7 +69,7 @@
     async function saveRocketConfig() {
         await invoke("config_write", { config: status.config });
         savedStatus = structuredClone(status);
-        await loadStatus();
+        setTimeout(loadStatus, 100);
     }
 
     async function loadConfig() {
@@ -311,6 +311,33 @@
                     fill: true,
                     spanGaps: true,
                 },
+                {
+                    label: "Roll Rate (rad/s)",
+                    data: chartData.map((x) => ({
+                        x: x.time / 1000,
+                        y: x.gzr,
+                    })),
+                    fill: true,
+                    spanGaps: true,
+                },
+                {
+                    label: "Yaw Rate (rad/s)",
+                    data: chartData.map((x) => ({
+                        x: x.time / 1000,
+                        y: x.gxr,
+                    })),
+                    fill: true,
+                    spanGaps: true,
+                },
+                {
+                    label: "Pitch Rate (rad/s)",
+                    data: chartData.map((x) => ({
+                        x: x.time / 1000,
+                        y: x.gyr,
+                    })),
+                    fill: true,
+                    spanGaps: true,
+                },
             ],
         };
 
@@ -369,8 +396,9 @@
     let simStartTime: number = 0;
 
     let showMotion = true;
-    let showEnvironment = true;
+    let showEnvironment = false;
     let showSim = true;
+    let showRotation = false;
     function updateChartData() {
         let dat = structuredClone(data);
         if (!showMotion) {
@@ -399,6 +427,14 @@
                     x.label != "Simulated Vertical Acceleration (m/s^2)" &&
                     x.label != "Simulated Canard Angle (degrees)" &&
                     x.label != "Simulated Predicted Altitude (m)",
+            );
+        }
+        if (!showRotation) {
+            dat.datasets = dat.datasets.filter(
+                (x) =>
+                    x.label != "Roll Rate (rad/s)" &&
+                    x.label != "Pitch Rate (rad/s)" &&
+                    x.label != "Yaw Rate (rad/s)",
             );
         }
 
@@ -1110,6 +1146,18 @@
                             />
                             <label class="form-check-label" for="showSim">
                                 Show Simulation Data
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input
+                                class="form-check-input"
+                                type="checkbox"
+                                bind:checked={showRotation}
+                                on:change={updateChartData}
+                                id="showRotation"
+                            />
+                            <label class="form-check-label" for="showRotation">
+                                Show Rotation Rates
                             </label>
                         </div>
 
