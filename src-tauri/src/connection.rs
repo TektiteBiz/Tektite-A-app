@@ -104,6 +104,9 @@ fn handle_err(port: Option<Box<dyn SerialPort>>, app_handle: tauri::AppHandle) {
 #[tauri::command]
 pub fn get_status(port: tauri::State<SerialPortState>, app_handle: tauri::AppHandle) -> StatusData {
     let mut binding = port.0.lock().unwrap();
+    if !binding.is_some() {
+        return StatusData::default();
+    }
     let mut val = binding.as_mut().unwrap();
     if let Err(_) = val.clear(serialport::ClearBuffer::Input) {
         handle_err(binding.take(), app_handle);
