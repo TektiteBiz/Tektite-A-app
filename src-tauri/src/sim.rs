@@ -2,7 +2,6 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize)]
 pub struct SimConfig {
-    rho: f32,
     A: f32, // reference area
     mass: f32,
     propellantMass: f32,
@@ -51,13 +50,13 @@ fn get_thrust_time(config: &SimConfig) -> f32 {
 
 const G: f32 = 9.81;
 
-fn calc_a(config: &SimConfig, ti: f32, vzi: f32, vxi: f32, angle: f32) -> (f32, f32) {
+fn calc_a(config: &SimConfig, ti: f32, vzi: f32, vxi: f32, angle: f32, rho: f32) -> (f32, f32) {
     let mass = config.mass - (config.propellantMass / 1000.0) * (ti / get_thrust_time(config));
     let cd = config.baseCd + config.canardCd * (angle / 90.0);
     let thrust = get_thrust(config, ti);
     let ang = (vxi / vzi).atan();
-    let az = -0.5 * config.rho * config.A * cd * vzi * vzi / mass - G + thrust / mass * ang.cos();
-    let ax = -0.5 * config.rho * config.A * cd * vxi * vxi / mass * ang.sin();
+    let az = -0.5 * rho * config.A * cd * vzi * vzi / mass - G + thrust / mass * ang.cos();
+    let ax = -0.5 * rho * config.A * cd * vxi * vxi / mass * ang.sin();
     (az, ax)
 }
 
@@ -69,10 +68,11 @@ fn solve_iter(
     vxi: f32,
     angle: f32,
     h: f32,
+    rho: f32,
 ) -> (f32, f32, f32) {
     let k0z = h * vzi;
     let k0x = h * vxi;
-    let (l0z, l0x) = calc_a(config, ti, vzi, vxi, angle);
+    let (l0z, l0x) = calc_a(config, ti, vzi, vxi, angle, rho);
 
     let k1z = h * (vzi + 0.5 * k0z);
     let k1x = h * (vxi + 0.5 * k0x);
@@ -82,6 +82,7 @@ fn solve_iter(
         vzi + 0.5 * k0z,
         vxi + 0.5 * k0x,
         angle,
+        rho,
     );
 
     let k2z = h * (vzi + 0.5 * k1z);
@@ -92,10 +93,11 @@ fn solve_iter(
         vzi + 0.5 * k1z,
         vxi + 0.5 * k1x,
         angle,
+        rho,
     );
 
     let k3z = h * (vzi + k2z);
-    let (l3z, l3x) = calc_a(config, ti + h, vzi + k2z, vxi + k2x, angle);
+    let (l3z, l3x) = calc_a(config, ti + h, vzi + k2z, vxi + k2x, angle, rho);
 
     (
         xi + (1.0 / 6.0) * (k0z + 2.0 * k1z + 2.0 * k2z + k3z),
@@ -105,13 +107,13 @@ fn solve_iter(
 }
 
 const H: f32 = 0.1;
-pub fn get_apogee(config: &SimConfig, t0: f32, vz0: f32, x0: f32, angle: f32) -> f32 {
+pub fn get_apogee(config: &SimConfig, t0: f32, vz0: f32, x0: f32, angle: f32, rho: f32) -> f32 {
     let mut vx = 0.0;
     let mut vz = vz0;
     let mut x = x0;
     let mut t = t0;
     while t0 <= 0.000001 || vz > 0.0 {
-        (x, vz, vx) = solve_iter(&config, t, x, vz, vx, angle, H);
+        (x, vz, vx) = solve_iter(&config, t, x, vz, vx, angle, H, rho);
         t += H;
     }
     x
@@ -149,6 +151,7 @@ pub fn calc_sim(
     vz0: f32,
     x0: f32,
     temp: f32,
+    rho: f32,
 ) -> SimResult {
     let mut result = SimResult::default();
     let mut vx = vx0;
@@ -160,7 +163,7 @@ pub fn calc_sim(
     let mut angd_t = 0.0;
     let target = (temp + 273.15) / 286.65 * config.param;
     for i in 1..times.len() {
-        let (az, ax) = calc_a(&config, times[i], vz, vx, realang);
+        let (az, ax) = calc_a(&config, times[i], vz, vx, realang, rho);
         (x, vz, vx) = solve_iter(
             &config,
             times[i],
@@ -169,6 +172,7 @@ pub fn calc_sim(
             vx,
             realang,
             times[i] - times[i - 1],
+            rho,
         );
         result.time.push(times[i]);
         result.alt.push(x);
@@ -195,9 +199,9 @@ pub fn calc_sim(
             if config.control {
                 result
                     .predictedAlt
-                    .push(get_apogee(&config, times[i], vd, xd, realang));
+                    .push(get_apogee(&config, times[i], vd, xd, realang, rho));
                 for j in 0..samples[i] {
-                    let pre = get_apogee(&config, times[i], vd, xd, realang);
+                    let pre = get_apogee(&config, times[i], vd, xd, realang, rho);
                     angle += config.P * (pre - target);
                     if angle < 0.0 {
                         angle = 0.0;
@@ -215,7 +219,7 @@ pub fn calc_sim(
                 realang = get_realang(times[i] - times[i - 1], angle, realang);
                 result
                     .predictedAlt
-                    .push(get_apogee(&config, times[i], vd, xd, realang));
+                    .push(get_apogee(&config, times[i], vd, xd, realang, rho));
             }
         } else {
             angle = 0.0;

@@ -461,6 +461,7 @@
             vz0: Number(chartData![idx].vz),
             x0: Number(chartData![idx].alt),
             temp: config.temp,
+            rho: rho,
         })) as SimData;
         res.time = res.time.map((x) => Math.round(x * 1000) / 1000); // Fix floating point errors
         setChartData("Simulated Altitude (m)", res.time, res.alt);
